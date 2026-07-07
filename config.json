@@ -1,0 +1,7 @@
+{
+  "input_file": "КейЛОАД.txt",
+  "output_file": "output/_base_gsz_keys.xlsx",
+  "min_token_length": 2,
+  "short_token_not_max_len": 5,
+  "common_token_threshold": 80
+}
