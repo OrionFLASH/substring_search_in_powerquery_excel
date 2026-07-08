@@ -32,11 +32,11 @@
       "key_or_not_3"
     ],
     "workers": 8,
-    "chunk_size": 200,
-    "work_batch_size": 50,
+    "chunk_size": 100,
+    "work_batch_size": 20,
     "log_stages": true,
-    "progress_every_holdings": 1000,
-    "progress_every_base_rows": 1000,
+    "progress_every_holdings": 500,
+    "progress_every_base_rows": 500,
     "show_current_holding": true
   }
 }

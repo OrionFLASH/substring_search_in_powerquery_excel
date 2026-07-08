@@ -185,6 +185,11 @@ python3 src/gsz_matcher_parallel.py \
 
 Чтобы прогресс в сопоставлении появлялся чаще, уменьшайте `work_batch_size` (например, 20-50).
 
+Рекомендуемый "живой" профиль для больших объемов:
+- `work_batch_size`: `20`
+- `progress_every_holdings`: `500`
+- `progress_every_base_rows`: `500`
+
 Для альтернативного файла конфигурации:
 
 ```bash
