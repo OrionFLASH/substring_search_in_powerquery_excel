@@ -238,6 +238,29 @@ def read_excel_table(
     raise ValueError(f"Таблица '{table_name}' не найдена в {path}")
 
 
+def inspect_workbook_objects(path: Path) -> dict[str, Any]:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, data_only=True, read_only=False)
+    table_names: list[str] = []
+    for ws in wb.worksheets:
+        table_names.extend(list(ws.tables.keys()))
+
+    defined_names: list[str] = []
+    try:
+        for dn in wb.defined_names.definedName:
+            if getattr(dn, "name", None):
+                defined_names.append(str(dn.name))
+    except Exception:
+        # Безопасный fallback для разных версий openpyxl.
+        pass
+
+    return {
+        "table_names": sorted(set(table_names)),
+        "defined_names": sorted(set(defined_names)),
+    }
+
+
 BASE_METAS: tuple[BaseMeta, ...] = ()
 ANCHOR_NOT_INDEX: dict[str, tuple[int, ...]] = {}
 ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
@@ -520,6 +543,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "progress_every_read_rows": block.get("progress_every_read_rows", 1000),
         "heartbeat_seconds": block.get("heartbeat_seconds", 10),
         "show_current_holding": block.get("show_current_holding", True),
+        "diagnose_workbook_objects": block.get("diagnose_workbook_objects", True),
     }
 
     # Обратная совместимость: можно использовать старые плоские ключи.
@@ -579,6 +603,28 @@ def main() -> None:
             f"progress_every={settings['progress_every_holdings']}, "
             f"heartbeat={settings['heartbeat_seconds']}s"
         )
+        if settings["diagnose_workbook_objects"]:
+            log(f"[stage] Диагностика объектов книги: {input_xlsx}")
+            info = inspect_workbook_objects(input_xlsx)
+            log(f"[diag] Smart Tables ({len(info['table_names'])}): {', '.join(info['table_names']) or '-'}")
+            log(f"[diag] Defined Names ({len(info['defined_names'])}): {', '.join(info['defined_names']) or '-'}")
+            hold_as_table = settings["holding_table"] in set(info["table_names"])
+            base_as_table = settings["base_table"] in set(info["table_names"])
+            hold_as_name = settings["holding_table"] in set(info["defined_names"])
+            base_as_name = settings["base_table"] in set(info["defined_names"])
+            log(
+                f"[diag] holding_table='{settings['holding_table']}': "
+                f"smart_table={hold_as_table}, defined_name={hold_as_name}"
+            )
+            log(
+                f"[diag] base_table='{settings['base_table']}': "
+                f"smart_table={base_as_table}, defined_name={base_as_name}"
+            )
+            if (hold_as_name and not hold_as_table) or (base_as_name and not base_as_table):
+                log(
+                    "[diag-warning] Найдено имя как Defined Name, но не как Smart Table. "
+                    "Скрипт читает только Smart Table (ListObject)."
+                )
     if settings["log_stages"]:
         log(f"[stage] Чтение таблицы {settings['holding_table']}...")
     hold_rows = read_excel_table(
