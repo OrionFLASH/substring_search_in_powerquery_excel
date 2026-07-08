@@ -188,8 +188,14 @@ python3 src/gsz_matcher_parallel.py \
       "header_center": true,
       "header_wrap": true,
       "header_bold": true,
-      "freeze_rows": 1,
-      "freeze_cols": 3
+      "holding_freeze_rows": 1,
+      "holding_freeze_cols": 3,
+      "base_freeze_rows": 1,
+      "base_freeze_cols": 6,
+      "min_width_all": 100,
+      "holding_debug_min_width": 250,
+      "holding_gsz_min_width": 250,
+      "holding_debug_wrap": true
     }
   }
 }
@@ -247,11 +253,21 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 - `Отладка_совпадения_ГСЗ` (все совпадения через `";\n"` или `-`)
 - `Кол-во совпадений` (число совпавших условных ГСЗ)
 
-Форматирование выходного листа `_HOLD_OD` управляется через `output_format`:
+Дополнительно в лист `_base_gsz` добавляются:
+- `кол-во холдингов` — сколько холдингов матчилось на эту строку ключей;
+- `строка ключа` — сцепка непустых ключей через `_`;
+- `длина ключа` — число символов в `строке ключа`;
+- `число повторов` — сколько раз такая же `строка ключа` встречается в `_base_gsz`.
+
+Форматирование выходных листов управляется через `output_format`:
 - заголовки по центру (`header_center`)
 - перенос строк в заголовках (`header_wrap`)
 - жирные заголовки (`header_bold`)
-- закрепление областей (`freeze_rows`, `freeze_cols`), например 1 строка и 3 колонки
+- закрепление на листе `_HOLD_OD` (`holding_freeze_rows`, `holding_freeze_cols`)
+- закрепление на листе `_base_gsz` (`base_freeze_rows`, `base_freeze_cols`) — для `G2`: `1` и `6`
+- минимальная ширина всех колонок (`min_width_all`)
+- минимальная ширина колонок `условное ГСЗ` и `Отладка_совпадения_ГСЗ`
+- перенос по всей колонке отладки (`holding_debug_wrap`)
 
 ### Шаги запроса (основные)
 
