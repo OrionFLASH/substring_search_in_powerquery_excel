@@ -179,11 +179,11 @@ fnСтрокаGszСовпала → fnНайтиВсеGsz                       
 | `src/PowerQuery/_HOLD_OD_GSZ.pq` | да | M-скрипт |
 | `src/generate_gsz_keys.py` | да | Генератор ключей |
 | `config.json` | да | Параметры генератора |
-| `КейЛОАД.txt` | да | Исходный список ГСЗ |
+| `КейЛОАД.txt` | **нет** | Локальный входной файл для генератора ключей |
 | `output/*.xlsx` | **нет** | Локальный результат (`output/.gitkeep` — в git) |
 | `*.xlsx` | **нет** | Любые Excel-файлы |
 
-`.gitignore` исключает `*.xlsx`, `output/`, `log/`, `.venv/`.
+`.gitignore` исключает `*.xlsx`, `output/`, `КейЛОАД.txt`, `log/`, `.venv/`.
 
 ---
 

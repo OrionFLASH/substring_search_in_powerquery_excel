@@ -2,6 +2,7 @@
 output/*
 !output/.gitkeep
 log/
+КейЛОАД.txt
 *.xlsx
 *.xlsm
 *.xls
