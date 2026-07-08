@@ -168,8 +168,10 @@ python3 src/gsz_matcher_parallel.py \
     "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
     "workers": 8,
     "chunk_size": 200,
+    "work_batch_size": 50,
     "log_stages": true,
     "progress_every_holdings": 1000,
+    "progress_every_base_rows": 1000,
     "show_current_holding": true
   }
 }
@@ -177,8 +179,16 @@ python3 src/gsz_matcher_parallel.py \
 
 Во время длинной обработки скрипт выводит:
 - стадии выполнения (`[stage] ...`);
+- прогресс подготовки справочника (`[progress-base] ...`) каждые `progress_every_base_rows`;
 - прогресс каждые `progress_every_holdings` холдингов;
 - долю выполненной работы, скорость, ETA и (опционально) текущий холдинг.
+
+Чтобы прогресс в сопоставлении появлялся чаще, уменьшайте `work_batch_size` (например, 20-50).
+
+Рекомендуемый "живой" профиль для больших объемов:
+- `work_batch_size`: `20`
+- `progress_every_holdings`: `500`
+- `progress_every_base_rows`: `500`
 
 Для альтернативного файла конфигурации:
 
