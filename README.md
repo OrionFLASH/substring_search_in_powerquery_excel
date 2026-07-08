@@ -35,7 +35,8 @@ substring_search_in_powerquery_excel/
 │   ├── PowerQuery/
 │   │   ├── _HOLD_OD_GSZ.pq            # Базовый M-скрипт запроса
 │   │   └── _HOLD_OD_GSZ_FAST.pq       # Ускоренная версия для больших объемов
-│   └── generate_gsz_keys.py           # Генератор ключей → Excel (локально)
+│   ├── generate_gsz_keys.py           # Генератор ключей → Excel (локально)
+│   └── gsz_matcher_parallel.py        # Python-сопоставление (параллельно)
 └── output/                            # Локальный вывод (в git не попадает)
     └── _base_gsz_keys.xlsx            # Создаётся скриптом
 ```
@@ -104,6 +105,59 @@ substring_search_in_powerquery_excel/
 4. Поиск `full`-вхождений использует `Text.PositionOf(..., Occurrence.All)`, а не посимвольный перебор стартовых позиций.
 
 Для больших наборов данных ускоренная версия обычно работает заметно быстрее базовой.
+
+## Python-вариант (полный перенос логики + параллелизация)
+
+Файл: `src/gsz_matcher_parallel.py`
+
+Скрипт реализует ту же бизнес-логику сопоставления, что и Power Query:
+- `and/or`,
+- `full/not`,
+- непересечение позиций AND-токенов.
+
+Дополнительно:
+- использует предфильтр по "якорному" токену,
+- запускает сопоставление в несколько процессов (`ProcessPoolExecutor`),
+- позволяет задать имена таблиц и колонок через аргументы.
+
+### Зависимости
+
+- Python 3.10+
+- `openpyxl`
+
+`openpyxl` обычно доступен в стандартной поставке Anaconda; остальное — стандартная библиотека Python.
+
+### Пример запуска
+
+```bash
+python3 src/gsz_matcher_parallel.py \
+  --input-xlsx "input/workbook.xlsx" \
+  --output-xlsx "output/hold_od_gsz_python.xlsx" \
+  --holding-table "_HOLD_OD" \
+  --base-table "_base_gsz" \
+  --holding-column "Холдинг" \
+  --gsz-column "Наименование, регион" \
+  --workers 8 \
+  --chunk-size 200
+```
+
+### Что можно настроить
+
+- таблицы: `--holding-table`, `--base-table`
+- основные колонки: `--holding-column`, `--gsz-column`
+- группы ключей:
+  - `--and-full-cols`
+  - `--and-not-cols`
+  - `--or-full-cols`
+  - `--or-not-cols`
+- производительность: `--workers`, `--chunk-size`
+- загрузка параметров из JSON: `--config-json`
+
+### Формат результата
+
+В выходной Excel пишется лист с холдингами и добавленными колонками:
+- `условное ГСЗ` (первое совпадение или `-`)
+- `Отладка_совпадения_ГСЗ` (все совпадения или `-`)
 
 ### Шаги запроса (основные)
 
