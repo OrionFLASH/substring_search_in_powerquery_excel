@@ -117,6 +117,8 @@ substring_search_in_powerquery_excel/
 
 Дополнительно:
 - использует предфильтр по "якорному" токену,
+- строит индекс кандидатов по anchor-not и anchor-full (в воркерах),
+- кэширует позиции токенов в рамках одного холдинга, чтобы не пересчитывать их многократно,
 - запускает сопоставление в несколько процессов (`ProcessPoolExecutor`),
 - позволяет задать имена таблиц и колонок через аргументы.
 
@@ -173,6 +175,7 @@ python3 src/gsz_matcher_parallel.py \
     "progress_every_holdings": 500,
     "progress_every_base_rows": 500,
     "progress_every_batches": 25,
+    "progress_every_read_rows": 500,
     "heartbeat_seconds": 10,
     "show_current_holding": true
   }
@@ -183,6 +186,7 @@ python3 src/gsz_matcher_parallel.py \
 - стадии выполнения (`[stage] ...`);
 - прогресс подготовки справочника (`[progress-base] ...`) каждые `progress_every_base_rows`;
 - этапный прогресс по завершению батчей (`[progress-batch] ...`) каждые `progress_every_batches`;
+- прогресс чтения и маппинга строк таблиц (`[progress-read] ...`) каждые `progress_every_read_rows`;
 - прогресс каждые `progress_every_holdings` холдингов;
 - heartbeat (`[heartbeat] ...`) каждые `heartbeat_seconds`, даже если очередная пачка еще не завершилась;
 - долю выполненной работы, скорость, ETA и (опционально) текущий холдинг.

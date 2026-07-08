@@ -192,7 +192,12 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
     return True
 
 
-def read_excel_table(path: Path, table_name: str) -> list[dict[str, Any]]:
+def read_excel_table(
+    path: Path,
+    table_name: str,
+    log_enabled: bool = False,
+    progress_every_read_rows: int = 1000,
+) -> list[dict[str, Any]]:
     from openpyxl import load_workbook
     from openpyxl.utils.cell import range_boundaries
 
@@ -201,33 +206,100 @@ def read_excel_table(path: Path, table_name: str) -> list[dict[str, Any]]:
         if table_name in ws.tables:
             table = ws.tables[table_name]
             min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+            total_rows = max(0, max_row - min_row + 1)
             rows: list[list[Any]] = []
-            for row in ws.iter_rows(
-                min_row=min_row,
-                max_row=max_row,
-                min_col=min_col,
-                max_col=max_col,
-                values_only=True,
+            for idx, row in enumerate(
+                ws.iter_rows(
+                    min_row=min_row,
+                    max_row=max_row,
+                    min_col=min_col,
+                    max_col=max_col,
+                    values_only=True,
+                ),
+                start=1,
             ):
                 rows.append(list(row))
+                if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_rows):
+                    log(f"[progress-read] {table_name}: read_rows={idx}/{total_rows}")
             if not rows:
                 return []
             headers = [str(h) if h is not None else "" for h in rows[0]]
             body = rows[1:]
+            total_body = len(body)
             out: list[dict[str, Any]] = []
-            for row in body:
+            for idx, row in enumerate(body, start=1):
                 rec = {headers[i]: row[i] if i < len(row) else None for i in range(len(headers))}
                 out.append(rec)
+                if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_body):
+                    log(f"[progress-read] {table_name}: map_rows={idx}/{total_body}")
             return out
     raise ValueError(f"Таблица '{table_name}' не найдена в {path}")
 
 
 BASE_METAS: tuple[BaseMeta, ...] = ()
+ANCHOR_NOT_INDEX: dict[str, tuple[int, ...]] = {}
+ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
+FULL_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
+NO_ANCHOR_INDICES: tuple[int, ...] = ()
 
 
 def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
     global BASE_METAS
+    global ANCHOR_NOT_INDEX
+    global ANCHOR_FULL_INDEX
+    global FULL_ANCHOR_WORDS_BY_CH
+    global NO_ANCHOR_INDICES
+
     BASE_METAS = base_metas
+    not_index: dict[str, list[int]] = {}
+    full_index: dict[str, list[int]] = {}
+    no_anchor: list[int] = []
+
+    for idx, meta in enumerate(base_metas):
+        a = meta.anchor
+        if a is None:
+            no_anchor.append(idx)
+            continue
+        if a.is_full:
+            full_index.setdefault(a.word, []).append(idx)
+        else:
+            not_index.setdefault(a.word, []).append(idx)
+
+    ANCHOR_NOT_INDEX = {k: tuple(v) for k, v in not_index.items()}
+    ANCHOR_FULL_INDEX = {k: tuple(v) for k, v in full_index.items()}
+    NO_ANCHOR_INDICES = tuple(no_anchor)
+
+    by_ch: dict[str, list[str]] = {}
+    for word in ANCHOR_FULL_INDEX:
+        unique_chars = set(word)
+        for ch in unique_chars:
+            by_ch.setdefault(ch, []).append(word)
+    FULL_ANCHOR_WORDS_BY_CH = {k: tuple(v) for k, v in by_ch.items()}
+
+
+def candidate_indices_for_text(text: str, words: set[str]) -> list[int]:
+    if not BASE_METAS:
+        return []
+
+    mark = bytearray(len(BASE_METAS))
+    for idx in NO_ANCHOR_INDICES:
+        mark[idx] = 1
+
+    for w in words:
+        for idx in ANCHOR_NOT_INDEX.get(w, ()):
+            mark[idx] = 1
+
+    seen_full_words: set[str] = set()
+    for ch in set(text):
+        for w in FULL_ANCHOR_WORDS_BY_CH.get(ch, ()):
+            if w in seen_full_words:
+                continue
+            seen_full_words.add(w)
+            if w in text:
+                for idx in ANCHOR_FULL_INDEX.get(w, ()):
+                    mark[idx] = 1
+
+    return [i for i, v in enumerate(mark) if v]
 
 
 def match_single_holding(text_value: Any) -> tuple[str, str]:
@@ -236,19 +308,50 @@ def match_single_holding(text_value: Any) -> tuple[str, str]:
         return "-", "-"
     words = extract_words(text)
 
+    pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
+
+    def get_positions(word: str, is_full: bool) -> list[tuple[int, int]]:
+        key = (word, is_full)
+        cached = pos_cache.get(key)
+        if cached is not None:
+            return cached
+        out = all_positions_full(text, word) if is_full else positions_not(text, word)
+        pos_cache[key] = out
+        return out
+
     matches: list[str] = []
-    for meta in BASE_METAS:
-        a = meta.anchor
-        if a is not None:
-            if a.is_full:
-                if a.word not in text:
-                    continue
-            else:
-                if a.word not in words:
-                    continue
-        if row_matches(text, meta):
-            if meta.gsz_value:
-                matches.append(meta.gsz_value)
+    for idx in candidate_indices_for_text(text, words):
+        meta = BASE_METAS[idx]
+        if not meta.has_keys:
+            continue
+
+        ok_and = True
+        if meta.and_tokens:
+            position_lists: list[list[tuple[int, int]]] = []
+            for t in meta.and_tokens:
+                pos = get_positions(t.word, t.is_full)
+                if not pos:
+                    ok_and = False
+                    break
+                position_lists.append(pos)
+            if ok_and and not and_non_overlapping(position_lists):
+                ok_and = False
+        if not ok_and:
+            continue
+
+        ok_or = True
+        if meta.or_tokens:
+            ok_or = False
+            for t in meta.or_tokens:
+                if get_positions(t.word, t.is_full):
+                    ok_or = True
+                    break
+        if not ok_or:
+            continue
+
+        # Полное совпадение найдено.
+        if meta.gsz_value:
+            matches.append(meta.gsz_value)
 
     if not matches:
         return "-", "-"
@@ -404,6 +507,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "progress_every_holdings": block.get("progress_every_holdings", 1000),
         "progress_every_base_rows": block.get("progress_every_base_rows", 1000),
         "progress_every_batches": block.get("progress_every_batches", 25),
+        "progress_every_read_rows": block.get("progress_every_read_rows", 1000),
         "heartbeat_seconds": block.get("heartbeat_seconds", 10),
         "show_current_holding": block.get("show_current_holding", True),
     }
@@ -465,11 +569,21 @@ def main() -> None:
         )
     if settings["log_stages"]:
         log(f"[stage] Чтение таблицы {settings['holding_table']}...")
-    hold_rows = read_excel_table(input_xlsx, settings["holding_table"])
+    hold_rows = read_excel_table(
+        input_xlsx,
+        settings["holding_table"],
+        log_enabled=bool(settings["log_stages"]),
+        progress_every_read_rows=max(1, int(settings["progress_every_read_rows"])),
+    )
     if settings["log_stages"]:
         log(f"[stage] Таблица {settings['holding_table']} загружена: {len(hold_rows)} строк.")
         log(f"[stage] Чтение таблицы {settings['base_table']}...")
-    base_rows = read_excel_table(input_xlsx, settings["base_table"])
+    base_rows = read_excel_table(
+        input_xlsx,
+        settings["base_table"],
+        log_enabled=bool(settings["log_stages"]),
+        progress_every_read_rows=max(1, int(settings["progress_every_read_rows"])),
+    )
     if settings["log_stages"]:
         log(f"[stage] Таблица {settings['base_table']} загружена: {len(base_rows)} строк.")
 
