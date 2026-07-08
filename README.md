@@ -172,10 +172,10 @@ python3 src/gsz_matcher_parallel.py \
     "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
     "workers": 8,
     "chunk_size": 100,
-    "work_batch_size": 20,
+    "work_batch_size": 30,
     "log_stages": true,
-    "progress_every_holdings": 500,
-    "progress_every_base_rows": 500,
+    "progress_every_holdings": 100,
+    "progress_every_base_rows": 150,
     "progress_every_batches": 25,
     "progress_every_read_rows": 500,
     "heartbeat_seconds": 10,
@@ -264,7 +264,7 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 - перенос строк в заголовках (`header_wrap`)
 - жирные заголовки (`header_bold`)
 - закрепление на листе `_HOLD_OD` (`holding_freeze_rows`, `holding_freeze_cols`)
-- закрепление на листе `_base_gsz` (`base_freeze_rows`, `base_freeze_cols`) — для `G2`: `1` и `6`
+- закрепление на листе `_base_gsz` (`base_freeze_rows`, `base_freeze_cols`) — для 1 строки и 3 колонок: `1` и `3` (ячейка `D2`)
 - минимальная ширина всех колонок (`min_width_all`)
 - минимальная ширина колонок `условное ГСЗ` и `Отладка_совпадения_ГСЗ`
 - перенос по всей колонке отладки (`holding_debug_wrap`)
