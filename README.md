@@ -172,6 +172,7 @@ python3 src/gsz_matcher_parallel.py \
     "log_stages": true,
     "progress_every_holdings": 500,
     "progress_every_base_rows": 500,
+    "progress_every_batches": 25,
     "heartbeat_seconds": 10,
     "show_current_holding": true
   }
@@ -181,6 +182,7 @@ python3 src/gsz_matcher_parallel.py \
 Во время длинной обработки скрипт выводит:
 - стадии выполнения (`[stage] ...`);
 - прогресс подготовки справочника (`[progress-base] ...`) каждые `progress_every_base_rows`;
+- этапный прогресс по завершению батчей (`[progress-batch] ...`) каждые `progress_every_batches`;
 - прогресс каждые `progress_every_holdings` холдингов;
 - heartbeat (`[heartbeat] ...`) каждые `heartbeat_seconds`, даже если очередная пачка еще не завершилась;
 - долю выполненной работы, скорость, ETA и (опционально) текущий холдинг.

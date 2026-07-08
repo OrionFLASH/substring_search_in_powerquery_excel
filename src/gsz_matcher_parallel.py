@@ -341,6 +341,22 @@ def build_progress_message(
     return msg
 
 
+def build_batch_message(
+    completed_batches: int,
+    total_batches: int,
+    work_batch_size: int,
+    total_holdings: int,
+    pending_futures: int,
+) -> str:
+    approx_done = min(total_holdings, completed_batches * work_batch_size)
+    pct = (approx_done / total_holdings * 100.0) if total_holdings else 100.0
+    return (
+        f"[progress-batch] batches={completed_batches}/{total_batches}, "
+        f"approx_holdings_done~={approx_done}/{total_holdings} ({pct:.1f}%), "
+        f"in_flight={pending_futures}"
+    )
+
+
 def make_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Параллельное сопоставление холдингов и условных ГСЗ")
     p.add_argument("--input-xlsx", help="Путь к исходной Excel-книге")
@@ -387,6 +403,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "log_stages": block.get("log_stages", True),
         "progress_every_holdings": block.get("progress_every_holdings", 1000),
         "progress_every_base_rows": block.get("progress_every_base_rows", 1000),
+        "progress_every_batches": block.get("progress_every_batches", 25),
         "heartbeat_seconds": block.get("heartbeat_seconds", 10),
         "show_current_holding": block.get("show_current_holding", True),
     }
@@ -498,6 +515,7 @@ def main() -> None:
     pool_chunk_size = max(1, int(settings["chunk_size"]))
     work_batch_size = max(1, int(settings["work_batch_size"]))
     progress_every = max(1, int(settings["progress_every_holdings"]))
+    progress_every_batches = max(1, int(settings["progress_every_batches"]))
     workers = max(1, int(settings["workers"]))
     heartbeat_seconds = max(1, int(settings["heartbeat_seconds"]))
     batches = chunked(holding_texts, work_batch_size)
@@ -505,7 +523,8 @@ def main() -> None:
     if settings["log_stages"]:
         log(
             f"[stage] Старт сопоставления: workers={workers}, work_batch={work_batch_size}, "
-            f"pool_chunk={pool_chunk_size}, progress_every={progress_every}"
+            f"pool_chunk={pool_chunk_size}, progress_every={progress_every}, "
+            f"progress_every_batches={progress_every_batches}"
         )
 
     results: list[tuple[str, str]] = []
@@ -520,6 +539,8 @@ def main() -> None:
         future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
         ordered_batches: dict[int, list[tuple[str, str]]] = {}
         next_idx_to_flush = 0
+        completed_batches = 0
+        next_batch_progress = progress_every_batches
         pending = set(future_to_idx.keys())
         while pending:
             done, pending = wait(pending, timeout=heartbeat_seconds, return_when=FIRST_COMPLETED)
@@ -541,6 +562,19 @@ def main() -> None:
             for fut in done:
                 idx = future_to_idx[fut]
                 ordered_batches[idx] = fut.result()
+                completed_batches += 1
+                if completed_batches >= next_batch_progress or completed_batches == len(batches):
+                    log(
+                        build_batch_message(
+                            completed_batches=completed_batches,
+                            total_batches=len(batches),
+                            work_batch_size=work_batch_size,
+                            total_holdings=total_holdings,
+                            pending_futures=len(pending),
+                        )
+                    )
+                    while next_batch_progress <= completed_batches:
+                        next_batch_progress += progress_every_batches
 
             while next_idx_to_flush in ordered_batches:
                 batch_result = ordered_batches.pop(next_idx_to_flush)
