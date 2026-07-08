@@ -429,6 +429,26 @@ def apply_sheet_formatting(
             if header_bold:
                 cell.font = Font(name=cell.font.name, size=cell.font.size, bold=True)
 
+    # Вертикальное центрирование для всех ячеек листа.
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        for cell in row:
+            existing = cell.alignment if cell.alignment is not None else Alignment()
+            cell.alignment = Alignment(
+                horizontal=existing.horizontal,
+                vertical="center",
+                text_rotation=existing.text_rotation,
+                wrap_text=existing.wrap_text,
+                shrink_to_fit=existing.shrink_to_fit,
+                indent=existing.indent,
+                relativeIndent=existing.relativeIndent,
+                justifyLastLine=existing.justifyLastLine,
+                readingOrder=existing.readingOrder,
+            )
+
+    # Автофильтр по всей области данных листа.
+    if ws.max_row >= 1 and ws.max_column >= 1:
+        ws.auto_filter.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+
     if freeze_rows > 0 or freeze_cols > 0:
         ws.freeze_panes = ws.cell(row=freeze_rows + 1, column=freeze_cols + 1)
 
