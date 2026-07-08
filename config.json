@@ -7,6 +7,8 @@
   "gsz_matcher_parallel": {
     "input_xlsx": "input/workbook.xlsx",
     "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "output_add_timestamp": true,
+    "output_timestamp_format": "%Y%m%d_%H%M%S",
     "holding_table": "_HOLD_OD",
     "base_table": "_base_gsz",
     "holding_column": "Холдинг",

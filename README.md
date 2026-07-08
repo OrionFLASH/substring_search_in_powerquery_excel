@@ -160,6 +160,8 @@ python3 src/gsz_matcher_parallel.py \
   "gsz_matcher_parallel": {
     "input_xlsx": "input/workbook.xlsx",
     "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "output_add_timestamp": true,
+    "output_timestamp_format": "%Y%m%d_%H%M%S",
     "holding_table": "_HOLD_OD",
     "base_table": "_base_gsz",
     "holding_column": "Холдинг",
@@ -194,6 +196,9 @@ python3 src/gsz_matcher_parallel.py \
 ```
 
 Важно: относительные пути (`input_xlsx`, `output_xlsx`, `logs_dir`) теперь резолвятся относительно папки, где лежит `config.json`, а не относительно рабочего каталога IDE.
+
+Если `output_add_timestamp=true`, к имени выходного файла автоматически добавляется таймштамп перед расширением, например:
+`hold_od_gsz_python_20260708_113500.xlsx`.
 
 Во время длинной обработки скрипт выводит:
 - стадии выполнения (`[stage] ...`);

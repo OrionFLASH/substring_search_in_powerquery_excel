@@ -613,6 +613,8 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
                 "freeze_cols": 3,
             },
         ),
+        "output_add_timestamp": block.get("output_add_timestamp", True),
+        "output_timestamp_format": block.get("output_timestamp_format", "%Y%m%d_%H%M%S"),
         "_config_dir": str(config_path.parent),
     }
 
@@ -656,6 +658,13 @@ def resolve_path(value: str, base_dir: Path) -> Path:
     return (base_dir / p).resolve()
 
 
+def with_timestamp_suffix(path: Path, pattern: str = "%Y%m%d_%H%M%S") -> Path:
+    ts = datetime.now().strftime(pattern)
+    if path.suffix:
+        return path.with_name(f"{path.stem}_{ts}{path.suffix}")
+    return path.with_name(f"{path.name}_{ts}")
+
+
 def main() -> None:
     configure_unbuffered_console_output()
     parser = make_arg_parser()
@@ -674,6 +683,11 @@ def main() -> None:
 
     input_xlsx = resolve_path(str(settings["input_xlsx"]), config_dir)
     output_xlsx = resolve_path(str(settings["output_xlsx"]), config_dir)
+    if settings["output_add_timestamp"]:
+        output_xlsx = with_timestamp_suffix(
+            output_xlsx,
+            pattern=str(settings["output_timestamp_format"]),
+        )
 
     and_full_cols = parse_cols(settings["and_full_cols"])
     and_not_cols = parse_cols(settings["and_not_cols"])
