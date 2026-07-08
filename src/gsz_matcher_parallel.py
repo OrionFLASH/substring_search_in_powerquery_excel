@@ -537,7 +537,8 @@ def load_config(path: Path) -> dict[str, Any]:
 
 
 def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
-    cfg = load_config(Path(args.config_json).expanduser().resolve())
+    config_path = Path(args.config_json).expanduser().resolve()
+    cfg = load_config(config_path)
     block = cfg.get("gsz_matcher_parallel", {})
 
     defaults: dict[str, Any] = {
@@ -565,6 +566,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "log_to_file": block.get("log_to_file", True),
         "logs_dir": block.get("logs_dir", "LOGS"),
         "log_file_prefix": block.get("log_file_prefix", "gsz_matcher_parallel"),
+        "_config_dir": str(config_path.parent),
     }
 
     # Обратная совместимость: можно использовать старые плоские ключи.
@@ -600,21 +602,31 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
     return defaults
 
 
+def resolve_path(value: str, base_dir: Path) -> Path:
+    p = Path(value).expanduser()
+    if p.is_absolute():
+        return p.resolve()
+    return (base_dir / p).resolve()
+
+
 def main() -> None:
     configure_unbuffered_console_output()
     parser = make_arg_parser()
     args = parser.parse_args()
     settings = resolve_settings(args)
+    config_dir = Path(str(settings["_config_dir"])).resolve()
 
     if settings["log_to_file"]:
+        logs_dir_value = str(settings["logs_dir"])
+        logs_dir_path = resolve_path(logs_dir_value, config_dir)
         log_path = configure_file_logging(
-            logs_dir=str(settings["logs_dir"]),
+            logs_dir=str(logs_dir_path),
             log_file_prefix=str(settings["log_file_prefix"]),
         )
         log(f"[stage] File log: {log_path}")
 
-    input_xlsx = Path(settings["input_xlsx"]).expanduser().resolve()
-    output_xlsx = Path(settings["output_xlsx"]).expanduser().resolve()
+    input_xlsx = resolve_path(str(settings["input_xlsx"]), config_dir)
+    output_xlsx = resolve_path(str(settings["output_xlsx"]), config_dir)
 
     and_full_cols = parse_cols(settings["and_full_cols"])
     and_not_cols = parse_cols(settings["and_not_cols"])
