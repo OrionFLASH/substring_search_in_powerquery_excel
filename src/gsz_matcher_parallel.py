@@ -1,0 +1,386 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Параллельное сопоставление холдингов с условными ГСЗ.
+
+Скрипт переносит логику Power Query в Python:
+- and/or блоки;
+- full/not режимы;
+- непересечение интервалов для AND.
+
+Оптимизации:
+- предобработка справочника _base_gsz;
+- якорный предфильтр кандидатов;
+- параллельная обработка строк _HOLD_OD.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import multiprocessing as mp
+import re
+import time
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
+DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
+DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
+DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
+
+
+def normalize_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip().lower()
+
+
+def is_letter(ch: str) -> bool:
+    if len(ch) != 1:
+        return False
+    c = ch.lower()
+    return ("a" <= c <= "z") or ("а" <= c <= "я") or c == "ё"
+
+
+def all_positions_full(text: str, word: str) -> list[tuple[int, int]]:
+    if not word or len(word) > len(text):
+        return []
+    out: list[tuple[int, int]] = []
+    start = 0
+    wl = len(word)
+    while True:
+        pos = text.find(word, start)
+        if pos == -1:
+            break
+        out.append((pos, pos + wl - 1))
+        start = pos + 1
+    return out
+
+
+def positions_not(text: str, word: str) -> list[tuple[int, int]]:
+    result: list[tuple[int, int]] = []
+    n = len(text)
+    for s, e in all_positions_full(text, word):
+        left_ok = s == 0 or not is_letter(text[s - 1])
+        right_ok = e == n - 1 or not is_letter(text[e + 1])
+        if left_ok and right_ok:
+            result.append((s, e))
+    return result
+
+
+def overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
+    return not (a[1] < b[0] or b[1] < a[0])
+
+
+def and_non_overlapping(position_lists: list[list[tuple[int, int]]], idx: int = 0, chosen: list[tuple[int, int]] | None = None) -> bool:
+    chosen = chosen or []
+    if idx >= len(position_lists):
+        return True
+    for interval in position_lists[idx]:
+        if any(overlap(interval, prev) for prev in chosen):
+            continue
+        if and_non_overlapping(position_lists, idx + 1, chosen + [interval]):
+            return True
+    return False
+
+
+def extract_words(text: str) -> set[str]:
+    # Для fast-предфильтра по режиму "not".
+    return set(re.findall(r"[A-Za-zА-Яа-яЁё0-9]+", text.lower()))
+
+
+@dataclass(frozen=True)
+class Token:
+    word: str
+    is_full: bool
+
+
+@dataclass(frozen=True)
+class BaseMeta:
+    gsz_value: str
+    has_keys: bool
+    and_tokens: tuple[Token, ...]
+    or_tokens: tuple[Token, ...]
+    anchor: Token | None
+
+
+def parse_cols(value: str) -> list[str]:
+    return [v.strip() for v in value.split(",") if v.strip()]
+
+
+def pick_best_anchor(tokens: list[Token]) -> Token | None:
+    if not tokens:
+        return None
+    return max(tokens, key=lambda t: len(t.word))
+
+
+def pick_anchor(and_tokens: list[Token], or_tokens: list[Token]) -> Token | None:
+    and_not = [t for t in and_tokens if not t.is_full]
+    and_full = [t for t in and_tokens if t.is_full]
+    or_not = [t for t in or_tokens if not t.is_full]
+    or_full = [t for t in or_tokens if t.is_full]
+    return (
+        pick_best_anchor(and_not)
+        or pick_best_anchor(and_full)
+        or pick_best_anchor(or_not)
+        or pick_best_anchor(or_full)
+    )
+
+
+def build_meta_row(
+    row: dict[str, Any],
+    gsz_col: str,
+    and_full_cols: list[str],
+    and_not_cols: list[str],
+    or_full_cols: list[str],
+    or_not_cols: list[str],
+) -> BaseMeta:
+    and_full_raw = [normalize_text(row.get(c, "")) for c in and_full_cols]
+    and_not_raw = [normalize_text(row.get(c, "")) for c in and_not_cols]
+    or_full_raw = [normalize_text(row.get(c, "")) for c in or_full_cols]
+    or_not_raw = [normalize_text(row.get(c, "")) for c in or_not_cols]
+
+    and_tokens = [Token(w, True) for w in and_full_raw if w] + [Token(w, False) for w in and_not_raw if w]
+    or_tokens = [Token(w, True) for w in or_full_raw if w] + [Token(w, False) for w in or_not_raw if w]
+    has_keys = bool(and_tokens or or_tokens)
+    anchor = pick_anchor(and_tokens, or_tokens)
+
+    gsz_value = str(row.get(gsz_col, "") or "").strip()
+    return BaseMeta(
+        gsz_value=gsz_value,
+        has_keys=has_keys,
+        and_tokens=tuple(and_tokens),
+        or_tokens=tuple(or_tokens),
+        anchor=anchor,
+    )
+
+
+def row_matches(text: str, meta: BaseMeta) -> bool:
+    if not text or not meta.has_keys:
+        return False
+
+    # AND
+    if meta.and_tokens:
+        position_lists: list[list[tuple[int, int]]] = []
+        for t in meta.and_tokens:
+            pos = all_positions_full(text, t.word) if t.is_full else positions_not(text, t.word)
+            if not pos:
+                return False
+            position_lists.append(pos)
+        if not and_non_overlapping(position_lists):
+            return False
+
+    # OR
+    if meta.or_tokens:
+        ok_or = False
+        for t in meta.or_tokens:
+            pos = all_positions_full(text, t.word) if t.is_full else positions_not(text, t.word)
+            if pos:
+                ok_or = True
+                break
+        if not ok_or:
+            return False
+
+    return True
+
+
+def read_excel_table(path: Path, table_name: str) -> list[dict[str, Any]]:
+    from openpyxl import load_workbook
+    from openpyxl.utils.cell import range_boundaries
+
+    wb = load_workbook(path, data_only=True, read_only=False)
+    for ws in wb.worksheets:
+        if table_name in ws.tables:
+            table = ws.tables[table_name]
+            min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+            rows: list[list[Any]] = []
+            for row in ws.iter_rows(
+                min_row=min_row,
+                max_row=max_row,
+                min_col=min_col,
+                max_col=max_col,
+                values_only=True,
+            ):
+                rows.append(list(row))
+            if not rows:
+                return []
+            headers = [str(h) if h is not None else "" for h in rows[0]]
+            body = rows[1:]
+            out: list[dict[str, Any]] = []
+            for row in body:
+                rec = {headers[i]: row[i] if i < len(row) else None for i in range(len(headers))}
+                out.append(rec)
+            return out
+    raise ValueError(f"Таблица '{table_name}' не найдена в {path}")
+
+
+BASE_METAS: tuple[BaseMeta, ...] = ()
+
+
+def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
+    global BASE_METAS
+    BASE_METAS = base_metas
+
+
+def match_single_holding(text_value: Any) -> tuple[str, str]:
+    text = normalize_text(text_value)
+    if not text:
+        return "-", "-"
+    words = extract_words(text)
+
+    matches: list[str] = []
+    for meta in BASE_METAS:
+        a = meta.anchor
+        if a is not None:
+            if a.is_full:
+                if a.word not in text:
+                    continue
+            else:
+                if a.word not in words:
+                    continue
+        if row_matches(text, meta):
+            if meta.gsz_value:
+                matches.append(meta.gsz_value)
+
+    if not matches:
+        return "-", "-"
+    return matches[0], "; ".join(matches)
+
+
+def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> None:
+    if not rows:
+        raise ValueError(f"{where} пуста")
+    available = set(rows[0].keys())
+    missing = [c for c in cols if c not in available]
+    if missing:
+        raise ValueError(f"В {where} отсутствуют колонки: {missing}")
+
+
+def write_sheet(ws: Any, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    headers = list(rows[0].keys())
+    ws.append(headers)
+    for row in rows:
+        ws.append([row.get(h) for h in headers])
+
+
+def write_output_xlsx(
+    output_path: Path,
+    holding_rows: list[dict[str, Any]],
+    base_rows: list[dict[str, Any]],
+    holding_sheet: str,
+    base_sheet: str,
+) -> None:
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = holding_sheet[:31] if holding_sheet else "HOLD_OD"
+    write_sheet(ws1, holding_rows)
+
+    ws2 = wb.create_sheet(title=base_sheet[:31] if base_sheet else "base_gsz")
+    write_sheet(ws2, base_rows)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(output_path)
+
+
+def make_arg_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="Параллельное сопоставление холдингов и условных ГСЗ")
+    p.add_argument("--input-xlsx", required=True, help="Путь к исходной Excel-книге")
+    p.add_argument("--output-xlsx", required=True, help="Путь к выходному Excel-файлу")
+    p.add_argument("--holding-table", default="_HOLD_OD", help="Имя таблицы холдингов")
+    p.add_argument("--base-table", default="_base_gsz", help="Имя таблицы справочника ГСЗ")
+    p.add_argument("--holding-column", default="Холдинг", help="Колонка с текстом холдинга")
+    p.add_argument("--gsz-column", default="Наименование, регион", help="Колонка значения условного ГСЗ")
+    p.add_argument("--and-full-cols", default=",".join(DEFAULT_AND_FULL), help="AND full колонки через запятую")
+    p.add_argument("--and-not-cols", default=",".join(DEFAULT_AND_NOT), help="AND not колонки через запятую")
+    p.add_argument("--or-full-cols", default=",".join(DEFAULT_OR_FULL), help="OR full колонки через запятую")
+    p.add_argument("--or-not-cols", default=",".join(DEFAULT_OR_NOT), help="OR not колонки через запятую")
+    p.add_argument("--workers", type=int, default=max(1, (mp.cpu_count() or 2) - 1), help="Число процессов")
+    p.add_argument("--chunk-size", type=int, default=200, help="Размер чанка для process pool")
+    p.add_argument("--config-json", help="JSON-файл с параметрами (любые аргументы можно задать в нем)")
+    return p
+
+
+def merge_args_with_config(args: argparse.Namespace) -> argparse.Namespace:
+    if not args.config_json:
+        return args
+    path = Path(args.config_json)
+    if not path.exists():
+        raise FileNotFoundError(f"config-json не найден: {path}")
+    with path.open(encoding="utf-8") as f:
+        cfg = json.load(f)
+    for k, v in cfg.items():
+        if hasattr(args, k):
+            setattr(args, k, v)
+    return args
+
+
+def main() -> None:
+    parser = make_arg_parser()
+    args = parser.parse_args()
+    args = merge_args_with_config(args)
+
+    input_xlsx = Path(args.input_xlsx).expanduser().resolve()
+    output_xlsx = Path(args.output_xlsx).expanduser().resolve()
+
+    and_full_cols = parse_cols(args.and_full_cols)
+    and_not_cols = parse_cols(args.and_not_cols)
+    or_full_cols = parse_cols(args.or_full_cols)
+    or_not_cols = parse_cols(args.or_not_cols)
+
+    t0 = time.perf_counter()
+    hold_rows = read_excel_table(input_xlsx, args.holding_table)
+    base_rows = read_excel_table(input_xlsx, args.base_table)
+
+    ensure_columns(hold_rows, [args.holding_column], f"таблице {args.holding_table}")
+    ensure_columns(
+        base_rows,
+        [args.gsz_column] + and_full_cols + and_not_cols + or_full_cols + or_not_cols,
+        f"таблице {args.base_table}",
+    )
+
+    metas = tuple(
+        build_meta_row(
+            row=r,
+            gsz_col=args.gsz_column,
+            and_full_cols=and_full_cols,
+            and_not_cols=and_not_cols,
+            or_full_cols=or_full_cols,
+            or_not_cols=or_not_cols,
+        )
+        for r in base_rows
+    )
+
+    holding_texts = [r.get(args.holding_column) for r in hold_rows]
+
+    with ProcessPoolExecutor(max_workers=max(1, int(args.workers)), initializer=worker_init, initargs=(metas,)) as ex:
+        results = list(ex.map(match_single_holding, holding_texts, chunksize=max(1, int(args.chunk_size))))
+
+    for row, res in zip(hold_rows, results):
+        row["условное ГСЗ"] = res[0]
+        row["Отладка_совпадения_ГСЗ"] = res[1]
+
+    write_output_xlsx(
+        output_path=output_xlsx,
+        holding_rows=hold_rows,
+        base_rows=base_rows,
+        holding_sheet=args.holding_table,
+        base_sheet=args.base_table,
+    )
+
+    t1 = time.perf_counter()
+    print(f"Готово. Вход: {input_xlsx}")
+    print(f"Результат: {output_xlsx}")
+    print(f"Холдингов: {len(hold_rows)}, строк _base_gsz: {len(base_rows)}")
+    print(f"Потоков: {max(1, int(args.workers))}, chunksize: {max(1, int(args.chunk_size))}")
+    print(f"Время: {t1 - t0:.2f} сек")
+
+
+if __name__ == "__main__":
+    main()
