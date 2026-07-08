@@ -736,7 +736,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
                 "holding_freeze_rows": 1,
                 "holding_freeze_cols": 3,
                 "base_freeze_rows": 1,
-                "base_freeze_cols": 6,
+                "base_freeze_cols": 3,
                 "min_width_all": 100,
                 "holding_debug_min_width": 250,
                 "holding_gsz_min_width": 250,
