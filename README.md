@@ -177,7 +177,11 @@ python3 src/gsz_matcher_parallel.py \
     "progress_every_batches": 25,
     "progress_every_read_rows": 500,
     "heartbeat_seconds": 10,
-    "show_current_holding": true
+    "show_current_holding": true,
+    "diagnose_workbook_objects": true,
+    "log_to_file": true,
+    "logs_dir": "LOGS",
+    "log_file_prefix": "gsz_matcher_parallel"
   }
 }
 ```
@@ -190,6 +194,8 @@ python3 src/gsz_matcher_parallel.py \
 - прогресс каждые `progress_every_holdings` холдингов;
 - heartbeat (`[heartbeat] ...`) каждые `heartbeat_seconds`, даже если очередная пачка еще не завершилась;
 - долю выполненной работы, скорость, ETA и (опционально) текущий холдинг.
+- диагностику объектов книги (`[diag] ...`): список Smart Tables и Defined Names, а также проверку, что `holding_table/base_table` найдены именно как Smart Table.
+- файловый лог в каталоге `LOGS` с именем вида `gsz_matcher_parallel_YYYYMMDD_HHMMSS.log`.
 
 Чтобы прогресс в сопоставлении появлялся чаще, уменьшайте `work_batch_size` (например, 20-50).
 
