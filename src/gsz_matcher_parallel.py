@@ -29,6 +29,7 @@ from concurrent.futures import FIRST_COMPLETED
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from openpyxl.styles import Alignment, Font
 
 
 DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
@@ -329,10 +330,10 @@ def candidate_indices_for_text(text: str, words: set[str]) -> list[int]:
     return [i for i, v in enumerate(mark) if v]
 
 
-def match_single_holding(text_value: Any) -> tuple[str, str]:
+def match_single_holding(text_value: Any) -> tuple[str, str, int]:
     text = normalize_text(text_value)
     if not text:
-        return "-", "-"
+        return "-", "-", 0
     words = extract_words(text)
 
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
@@ -381,8 +382,12 @@ def match_single_holding(text_value: Any) -> tuple[str, str]:
             matches.append(meta.gsz_value)
 
     if not matches:
-        return "-", "-"
-    return matches[0], "; ".join(matches)
+        return "-", "-", 0
+
+    count = len(matches)
+    debug_text = ";\n".join(matches)
+    primary = "есть пересечения по ключам" if count > 1 else matches[0]
+    return primary, debug_text, count
 
 
 def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> None:
@@ -403,12 +408,35 @@ def write_sheet(ws: Any, rows: list[dict[str, Any]]) -> None:
         ws.append([row.get(h) for h in headers])
 
 
+def apply_sheet_formatting(
+    ws: Any,
+    header_center: bool,
+    header_wrap: bool,
+    header_bold: bool,
+    freeze_rows: int,
+    freeze_cols: int,
+) -> None:
+    if ws.max_row >= 1:
+        for cell in ws[1]:
+            cell.alignment = Alignment(
+                horizontal="center" if header_center else cell.alignment.horizontal,
+                vertical="center",
+                wrap_text=header_wrap,
+            )
+            if header_bold:
+                cell.font = Font(name=cell.font.name, size=cell.font.size, bold=True)
+
+    if freeze_rows > 0 or freeze_cols > 0:
+        ws.freeze_panes = ws.cell(row=freeze_rows + 1, column=freeze_cols + 1)
+
+
 def write_output_xlsx(
     output_path: Path,
     holding_rows: list[dict[str, Any]],
     base_rows: list[dict[str, Any]],
     holding_sheet: str,
     base_sheet: str,
+    format_cfg: dict[str, Any] | None = None,
 ) -> None:
     from openpyxl import Workbook
 
@@ -416,6 +444,15 @@ def write_output_xlsx(
     ws1 = wb.active
     ws1.title = holding_sheet[:31] if holding_sheet else "HOLD_OD"
     write_sheet(ws1, holding_rows)
+    format_cfg = format_cfg or {}
+    apply_sheet_formatting(
+        ws=ws1,
+        header_center=bool(format_cfg.get("header_center", True)),
+        header_wrap=bool(format_cfg.get("header_wrap", True)),
+        header_bold=bool(format_cfg.get("header_bold", True)),
+        freeze_rows=max(0, int(format_cfg.get("freeze_rows", 1))),
+        freeze_cols=max(0, int(format_cfg.get("freeze_cols", 3))),
+    )
 
     ws2 = wb.create_sheet(title=base_sheet[:31] if base_sheet else "base_gsz")
     write_sheet(ws2, base_rows)
@@ -430,7 +467,7 @@ def chunked(seq: list[Any], size: int) -> list[list[Any]]:
     return [seq[i : i + size] for i in range(0, len(seq), size)]
 
 
-def match_holding_batch(text_batch: list[Any]) -> list[tuple[str, str]]:
+def match_holding_batch(text_batch: list[Any]) -> list[tuple[str, str, int]]:
     return [match_single_holding(x) for x in text_batch]
 
 
@@ -566,6 +603,16 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "log_to_file": block.get("log_to_file", True),
         "logs_dir": block.get("logs_dir", "LOGS"),
         "log_file_prefix": block.get("log_file_prefix", "gsz_matcher_parallel"),
+        "output_format": block.get(
+            "output_format",
+            {
+                "header_center": True,
+                "header_wrap": True,
+                "header_bold": True,
+                "freeze_rows": 1,
+                "freeze_cols": 3,
+            },
+        ),
         "_config_dir": str(config_path.parent),
     }
 
@@ -739,7 +786,7 @@ def main() -> None:
             f"progress_every_batches={progress_every_batches}"
         )
 
-    results: list[tuple[str, str]] = []
+    results: list[tuple[str, str, int]] = []
     processed = 0
     next_progress = progress_every
     match_started = time.perf_counter()
@@ -813,6 +860,7 @@ def main() -> None:
     for row, res in zip(hold_rows, results):
         row["условное ГСЗ"] = res[0]
         row["Отладка_совпадения_ГСЗ"] = res[1]
+        row["Кол-во совпадений"] = res[2]
 
     if settings["log_stages"]:
         log("[stage] Запись результата в Excel...")
@@ -822,6 +870,7 @@ def main() -> None:
         base_rows=base_rows,
         holding_sheet=settings["holding_table"],
         base_sheet=settings["base_table"],
+        format_cfg=settings.get("output_format"),
     )
 
     t1 = time.perf_counter()
