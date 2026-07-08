@@ -21,7 +21,8 @@ import multiprocessing as mp
 import re
 import time
 from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import as_completed
+from concurrent.futures import wait
+from concurrent.futures import FIRST_COMPLETED
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -315,6 +316,31 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
+def build_progress_message(
+    processed: int,
+    total_holdings: int,
+    batch_idx: int,
+    total_batches: int,
+    match_started: float,
+    holding_texts: list[Any],
+    show_current_holding: bool,
+    prefix: str = "[progress]",
+) -> str:
+    elapsed = time.perf_counter() - match_started
+    speed = processed / elapsed if elapsed > 0 else 0.0
+    remaining = max(0, total_holdings - processed)
+    eta_sec = (remaining / speed) if speed > 0 else 0.0
+    pct = (processed / total_holdings * 100.0) if total_holdings else 100.0
+    msg = (
+        f"{prefix} {processed}/{total_holdings} ({pct:.1f}%), "
+        f"batch={batch_idx}/{total_batches}, speed={speed:.1f} hold/s, "
+        f"eta={eta_sec:.1f}s"
+    )
+    if show_current_holding and processed > 0:
+        msg += f", current='{short_text(holding_texts[processed - 1])}'"
+    return msg
+
+
 def make_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Параллельное сопоставление холдингов и условных ГСЗ")
     p.add_argument("--input-xlsx", help="Путь к исходной Excel-книге")
@@ -361,6 +387,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "log_stages": block.get("log_stages", True),
         "progress_every_holdings": block.get("progress_every_holdings", 1000),
         "progress_every_base_rows": block.get("progress_every_base_rows", 1000),
+        "heartbeat_seconds": block.get("heartbeat_seconds", 10),
         "show_current_holding": block.get("show_current_holding", True),
     }
 
@@ -412,9 +439,22 @@ def main() -> None:
 
     t0 = time.perf_counter()
     if settings["log_stages"]:
-        log("[stage] Загрузка таблиц из Excel...")
+        log("[stage] Запуск Python-матчера.")
+        log(
+            f"[stage] Конфиг: workers={settings['workers']}, chunk_size={settings['chunk_size']}, "
+            f"work_batch_size={settings['work_batch_size']}, "
+            f"progress_every={settings['progress_every_holdings']}, "
+            f"heartbeat={settings['heartbeat_seconds']}s"
+        )
+    if settings["log_stages"]:
+        log(f"[stage] Чтение таблицы {settings['holding_table']}...")
     hold_rows = read_excel_table(input_xlsx, settings["holding_table"])
+    if settings["log_stages"]:
+        log(f"[stage] Таблица {settings['holding_table']} загружена: {len(hold_rows)} строк.")
+        log(f"[stage] Чтение таблицы {settings['base_table']}...")
     base_rows = read_excel_table(input_xlsx, settings["base_table"])
+    if settings["log_stages"]:
+        log(f"[stage] Таблица {settings['base_table']} загружена: {len(base_rows)} строк.")
 
     if settings["log_stages"]:
         log("[stage] Проверка обязательных колонок...")
@@ -459,6 +499,7 @@ def main() -> None:
     work_batch_size = max(1, int(settings["work_batch_size"]))
     progress_every = max(1, int(settings["progress_every_holdings"]))
     workers = max(1, int(settings["workers"]))
+    heartbeat_seconds = max(1, int(settings["heartbeat_seconds"]))
     batches = chunked(holding_texts, work_batch_size)
 
     if settings["log_stages"]:
@@ -479,28 +520,46 @@ def main() -> None:
         future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
         ordered_batches: dict[int, list[tuple[str, str]]] = {}
         next_idx_to_flush = 0
-        for fut in as_completed(future_to_idx):
-            idx = future_to_idx[fut]
-            ordered_batches[idx] = fut.result()
+        pending = set(future_to_idx.keys())
+        while pending:
+            done, pending = wait(pending, timeout=heartbeat_seconds, return_when=FIRST_COMPLETED)
+            if not done:
+                log(
+                    build_progress_message(
+                        processed=processed,
+                        total_holdings=total_holdings,
+                        batch_idx=next_idx_to_flush,
+                        total_batches=len(batches),
+                        match_started=match_started,
+                        holding_texts=holding_texts,
+                        show_current_holding=settings["show_current_holding"],
+                        prefix="[heartbeat]",
+                    )
+                )
+                continue
+
+            for fut in done:
+                idx = future_to_idx[fut]
+                ordered_batches[idx] = fut.result()
+
             while next_idx_to_flush in ordered_batches:
                 batch_result = ordered_batches.pop(next_idx_to_flush)
                 results.extend(batch_result)
                 processed += len(batch_result)
 
                 if processed >= next_progress or processed == total_holdings:
-                    elapsed = time.perf_counter() - match_started
-                    speed = processed / elapsed if elapsed > 0 else 0.0
-                    remaining = max(0, total_holdings - processed)
-                    eta_sec = (remaining / speed) if speed > 0 else 0.0
-                    pct = (processed / total_holdings * 100.0) if total_holdings else 100.0
-                    msg = (
-                        f"[progress] {processed}/{total_holdings} ({pct:.1f}%), "
-                        f"batch={next_idx_to_flush + 1}/{len(batches)}, speed={speed:.1f} hold/s, "
-                        f"eta={eta_sec:.1f}s"
+                    log(
+                        build_progress_message(
+                            processed=processed,
+                            total_holdings=total_holdings,
+                            batch_idx=next_idx_to_flush + 1,
+                            total_batches=len(batches),
+                            match_started=match_started,
+                            holding_texts=holding_texts,
+                            show_current_holding=settings["show_current_holding"],
+                            prefix="[progress]",
+                        )
                     )
-                    if settings["show_current_holding"] and processed > 0:
-                        msg += f", current='{short_text(holding_texts[processed - 1])}'"
-                    log(msg)
                     while next_progress <= processed:
                         next_progress += progress_every
                 next_idx_to_flush += 1

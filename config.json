@@ -37,6 +37,7 @@
     "log_stages": true,
     "progress_every_holdings": 500,
     "progress_every_base_rows": 500,
+    "heartbeat_seconds": 10,
     "show_current_holding": true
   }
 }
