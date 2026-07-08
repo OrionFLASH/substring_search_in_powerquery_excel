@@ -21,6 +21,7 @@ import multiprocessing as mp
 import re
 import time
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -310,6 +311,10 @@ def short_text(value: Any, max_len: int = 80) -> str:
     return s[: max_len - 3] + "..."
 
 
+def log(message: str) -> None:
+    print(message, flush=True)
+
+
 def make_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Параллельное сопоставление холдингов и условных ГСЗ")
     p.add_argument("--input-xlsx", help="Путь к исходной Excel-книге")
@@ -352,8 +357,10 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
         "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
         "chunk_size": block.get("chunk_size", 200),
+        "work_batch_size": block.get("work_batch_size", 50),
         "log_stages": block.get("log_stages", True),
         "progress_every_holdings": block.get("progress_every_holdings", 1000),
+        "progress_every_base_rows": block.get("progress_every_base_rows", 1000),
         "show_current_holding": block.get("show_current_holding", True),
     }
 
@@ -405,12 +412,12 @@ def main() -> None:
 
     t0 = time.perf_counter()
     if settings["log_stages"]:
-        print("[stage] Загрузка таблиц из Excel...")
+        log("[stage] Загрузка таблиц из Excel...")
     hold_rows = read_excel_table(input_xlsx, settings["holding_table"])
     base_rows = read_excel_table(input_xlsx, settings["base_table"])
 
     if settings["log_stages"]:
-        print("[stage] Проверка обязательных колонок...")
+        log("[stage] Проверка обязательных колонок...")
     ensure_columns(hold_rows, [settings["holding_column"]], f"таблице {settings['holding_table']}")
     ensure_columns(
         base_rows,
@@ -418,37 +425,46 @@ def main() -> None:
         f"таблице {settings['base_table']}",
     )
 
-    metas = tuple(
-        build_meta_row(
-            row=r,
-            gsz_col=settings["gsz_column"],
-            and_full_cols=and_full_cols,
-            and_not_cols=and_not_cols,
-            or_full_cols=or_full_cols,
-            or_not_cols=or_not_cols,
+    if settings["log_stages"]:
+        log("[stage] Подготовка метаданных справочника...")
+    metas_list: list[BaseMeta] = []
+    base_progress_every = max(1, int(settings["progress_every_base_rows"]))
+    for idx, r in enumerate(base_rows, start=1):
+        metas_list.append(
+            build_meta_row(
+                row=r,
+                gsz_col=settings["gsz_column"],
+                and_full_cols=and_full_cols,
+                and_not_cols=and_not_cols,
+                or_full_cols=or_full_cols,
+                or_not_cols=or_not_cols,
+            )
         )
-        for r in base_rows
-    )
+        if settings["log_stages"] and (idx % base_progress_every == 0 or idx == len(base_rows)):
+            log(f"[progress-base] {idx}/{len(base_rows)}")
+    metas = tuple(metas_list)
+
     total_holdings = len(hold_rows)
     total_base = len(base_rows)
     approx_comparisons = total_holdings * total_base
     if settings["log_stages"]:
-        print("[stage] Подготовка справочника завершена.")
-        print(
+        log("[stage] Подготовка справочника завершена.")
+        log(
             f"[stage] Оценка масштаба: {total_holdings} холдингов x "
             f"{total_base} строк справочника ~= {approx_comparisons} проверок"
         )
 
     holding_texts = [r.get(settings["holding_column"]) for r in hold_rows]
-    per_batch = max(1, int(settings["chunk_size"]))
+    pool_chunk_size = max(1, int(settings["chunk_size"]))
+    work_batch_size = max(1, int(settings["work_batch_size"]))
     progress_every = max(1, int(settings["progress_every_holdings"]))
     workers = max(1, int(settings["workers"]))
-    batches = chunked(holding_texts, per_batch)
+    batches = chunked(holding_texts, work_batch_size)
 
     if settings["log_stages"]:
-        print(
-            f"[stage] Старт сопоставления: workers={workers}, batch={per_batch}, "
-            f"progress_every={progress_every}"
+        log(
+            f"[stage] Старт сопоставления: workers={workers}, work_batch={work_batch_size}, "
+            f"pool_chunk={pool_chunk_size}, progress_every={progress_every}"
         )
 
     results: list[tuple[str, str]] = []
@@ -460,33 +476,41 @@ def main() -> None:
         initializer=worker_init,
         initargs=(metas,),
     ) as ex:
-        for batch_idx, batch_result in enumerate(ex.map(match_holding_batch, batches, chunksize=1), start=1):
-            results.extend(batch_result)
-            processed += len(batch_result)
+        future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
+        ordered_batches: dict[int, list[tuple[str, str]]] = {}
+        next_idx_to_flush = 0
+        for fut in as_completed(future_to_idx):
+            idx = future_to_idx[fut]
+            ordered_batches[idx] = fut.result()
+            while next_idx_to_flush in ordered_batches:
+                batch_result = ordered_batches.pop(next_idx_to_flush)
+                results.extend(batch_result)
+                processed += len(batch_result)
 
-            if processed >= next_progress or processed == total_holdings:
-                elapsed = time.perf_counter() - match_started
-                speed = processed / elapsed if elapsed > 0 else 0.0
-                remaining = max(0, total_holdings - processed)
-                eta_sec = (remaining / speed) if speed > 0 else 0.0
-                pct = (processed / total_holdings * 100.0) if total_holdings else 100.0
-                msg = (
-                    f"[progress] {processed}/{total_holdings} ({pct:.1f}%), "
-                    f"batch={batch_idx}/{len(batches)}, speed={speed:.1f} hold/s, "
-                    f"eta={eta_sec:.1f}s"
-                )
-                if settings["show_current_holding"] and processed > 0:
-                    msg += f", current='{short_text(holding_texts[processed - 1])}'"
-                print(msg)
-                while next_progress <= processed:
-                    next_progress += progress_every
+                if processed >= next_progress or processed == total_holdings:
+                    elapsed = time.perf_counter() - match_started
+                    speed = processed / elapsed if elapsed > 0 else 0.0
+                    remaining = max(0, total_holdings - processed)
+                    eta_sec = (remaining / speed) if speed > 0 else 0.0
+                    pct = (processed / total_holdings * 100.0) if total_holdings else 100.0
+                    msg = (
+                        f"[progress] {processed}/{total_holdings} ({pct:.1f}%), "
+                        f"batch={next_idx_to_flush + 1}/{len(batches)}, speed={speed:.1f} hold/s, "
+                        f"eta={eta_sec:.1f}s"
+                    )
+                    if settings["show_current_holding"] and processed > 0:
+                        msg += f", current='{short_text(holding_texts[processed - 1])}'"
+                    log(msg)
+                    while next_progress <= processed:
+                        next_progress += progress_every
+                next_idx_to_flush += 1
 
     for row, res in zip(hold_rows, results):
         row["условное ГСЗ"] = res[0]
         row["Отладка_совпадения_ГСЗ"] = res[1]
 
     if settings["log_stages"]:
-        print("[stage] Запись результата в Excel...")
+        log("[stage] Запись результата в Excel...")
     write_output_xlsx(
         output_path=output_xlsx,
         holding_rows=hold_rows,
@@ -497,15 +521,16 @@ def main() -> None:
 
     t1 = time.perf_counter()
     if settings["log_stages"]:
-        print("[stage] Готово.")
-    print(f"Готово. Вход: {input_xlsx}")
-    print(f"Результат: {output_xlsx}")
-    print(f"Холдингов: {len(hold_rows)}, строк _base_gsz: {len(base_rows)}")
-    print(
+        log("[stage] Готово.")
+    log(f"Готово. Вход: {input_xlsx}")
+    log(f"Результат: {output_xlsx}")
+    log(f"Холдингов: {len(hold_rows)}, строк _base_gsz: {len(base_rows)}")
+    log(
         f"Потоков: {max(1, int(settings['workers']))}, "
-        f"chunksize: {max(1, int(settings['chunk_size']))}"
+        f"work_batch: {max(1, int(settings['work_batch_size']))}, "
+        f"pool_chunk: {max(1, int(settings['chunk_size']))}"
     )
-    print(f"Время: {t1 - t0:.2f} сек")
+    log(f"Время: {t1 - t0:.2f} сек")
 
 
 if __name__ == "__main__":
