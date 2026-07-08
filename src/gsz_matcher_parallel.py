@@ -18,7 +18,9 @@ from __future__ import annotations
 import argparse
 import json
 import multiprocessing as mp
+import os
 import re
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import wait
@@ -419,6 +421,14 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
+def configure_unbuffered_console_output() -> None:
+    # Для IDE/раннеров, где stdout может буферизоваться даже с flush.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True, write_through=True)
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(line_buffering=True, write_through=True)
+
+
 def build_progress_message(
     processed: int,
     total_holdings: int,
@@ -546,6 +556,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> None:
+    configure_unbuffered_console_output()
     parser = make_arg_parser()
     args = parser.parse_args()
     settings = resolve_settings(args)
@@ -560,6 +571,7 @@ def main() -> None:
 
     t0 = time.perf_counter()
     if settings["log_stages"]:
+        log(f"[stage] Script={Path(__file__).resolve()} pid={os.getpid()}")
         log("[stage] Запуск Python-матчера.")
         log(
             f"[stage] Конфиг: workers={settings['workers']}, chunk_size={settings['chunk_size']}, "
