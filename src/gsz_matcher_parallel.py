@@ -292,6 +292,24 @@ def write_output_xlsx(
     wb.save(output_path)
 
 
+def chunked(seq: list[Any], size: int) -> list[list[Any]]:
+    if size <= 0:
+        size = 1
+    return [seq[i : i + size] for i in range(0, len(seq), size)]
+
+
+def match_holding_batch(text_batch: list[Any]) -> list[tuple[str, str]]:
+    return [match_single_holding(x) for x in text_batch]
+
+
+def short_text(value: Any, max_len: int = 80) -> str:
+    s = str(value) if value is not None else ""
+    s = s.replace("\n", " ").replace("\r", " ").strip()
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - 3] + "..."
+
+
 def make_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Параллельное сопоставление холдингов и условных ГСЗ")
     p.add_argument("--input-xlsx", help="Путь к исходной Excel-книге")
@@ -334,6 +352,9 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
         "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
         "chunk_size": block.get("chunk_size", 200),
+        "log_stages": block.get("log_stages", True),
+        "progress_every_holdings": block.get("progress_every_holdings", 1000),
+        "show_current_holding": block.get("show_current_holding", True),
     }
 
     # Обратная совместимость: можно использовать старые плоские ключи.
@@ -383,9 +404,13 @@ def main() -> None:
     or_not_cols = parse_cols(settings["or_not_cols"])
 
     t0 = time.perf_counter()
+    if settings["log_stages"]:
+        print("[stage] Загрузка таблиц из Excel...")
     hold_rows = read_excel_table(input_xlsx, settings["holding_table"])
     base_rows = read_excel_table(input_xlsx, settings["base_table"])
 
+    if settings["log_stages"]:
+        print("[stage] Проверка обязательных колонок...")
     ensure_columns(hold_rows, [settings["holding_column"]], f"таблице {settings['holding_table']}")
     ensure_columns(
         base_rows,
@@ -404,26 +429,64 @@ def main() -> None:
         )
         for r in base_rows
     )
+    total_holdings = len(hold_rows)
+    total_base = len(base_rows)
+    approx_comparisons = total_holdings * total_base
+    if settings["log_stages"]:
+        print("[stage] Подготовка справочника завершена.")
+        print(
+            f"[stage] Оценка масштаба: {total_holdings} холдингов x "
+            f"{total_base} строк справочника ~= {approx_comparisons} проверок"
+        )
 
     holding_texts = [r.get(settings["holding_column"]) for r in hold_rows]
+    per_batch = max(1, int(settings["chunk_size"]))
+    progress_every = max(1, int(settings["progress_every_holdings"]))
+    workers = max(1, int(settings["workers"]))
+    batches = chunked(holding_texts, per_batch)
 
+    if settings["log_stages"]:
+        print(
+            f"[stage] Старт сопоставления: workers={workers}, batch={per_batch}, "
+            f"progress_every={progress_every}"
+        )
+
+    results: list[tuple[str, str]] = []
+    processed = 0
+    next_progress = progress_every
+    match_started = time.perf_counter()
     with ProcessPoolExecutor(
-        max_workers=max(1, int(settings["workers"])),
+        max_workers=workers,
         initializer=worker_init,
         initargs=(metas,),
     ) as ex:
-        results = list(
-            ex.map(
-                match_single_holding,
-                holding_texts,
-                chunksize=max(1, int(settings["chunk_size"])),
-            )
-        )
+        for batch_idx, batch_result in enumerate(ex.map(match_holding_batch, batches, chunksize=1), start=1):
+            results.extend(batch_result)
+            processed += len(batch_result)
+
+            if processed >= next_progress or processed == total_holdings:
+                elapsed = time.perf_counter() - match_started
+                speed = processed / elapsed if elapsed > 0 else 0.0
+                remaining = max(0, total_holdings - processed)
+                eta_sec = (remaining / speed) if speed > 0 else 0.0
+                pct = (processed / total_holdings * 100.0) if total_holdings else 100.0
+                msg = (
+                    f"[progress] {processed}/{total_holdings} ({pct:.1f}%), "
+                    f"batch={batch_idx}/{len(batches)}, speed={speed:.1f} hold/s, "
+                    f"eta={eta_sec:.1f}s"
+                )
+                if settings["show_current_holding"] and processed > 0:
+                    msg += f", current='{short_text(holding_texts[processed - 1])}'"
+                print(msg)
+                while next_progress <= processed:
+                    next_progress += progress_every
 
     for row, res in zip(hold_rows, results):
         row["условное ГСЗ"] = res[0]
         row["Отладка_совпадения_ГСЗ"] = res[1]
 
+    if settings["log_stages"]:
+        print("[stage] Запись результата в Excel...")
     write_output_xlsx(
         output_path=output_xlsx,
         holding_rows=hold_rows,
@@ -433,6 +496,8 @@ def main() -> None:
     )
 
     t1 = time.perf_counter()
+    if settings["log_stages"]:
+        print("[stage] Готово.")
     print(f"Готово. Вход: {input_xlsx}")
     print(f"Результат: {output_xlsx}")
     print(f"Холдингов: {len(hold_rows)}, строк _base_gsz: {len(base_rows)}")

@@ -167,10 +167,18 @@ python3 src/gsz_matcher_parallel.py \
     "or_full_cols": ["key_or_full_1", "key_or_full_2", "key_or_full_3"],
     "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
     "workers": 8,
-    "chunk_size": 200
+    "chunk_size": 200,
+    "log_stages": true,
+    "progress_every_holdings": 1000,
+    "show_current_holding": true
   }
 }
 ```
+
+Во время длинной обработки скрипт выводит:
+- стадии выполнения (`[stage] ...`);
+- прогресс каждые `progress_every_holdings` холдингов;
+- долю выполненной работы, скорость, ETA и (опционально) текущий холдинг.
 
 Для альтернативного файла конфигурации:
 
