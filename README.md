@@ -25,7 +25,7 @@ Power Query-запрос `_HOLD_OD_GSZ` для каждой строки `_HOLD_
 substring_search_in_powerquery_excel/
 ├── README.md                          # Этот файл
 ├── ROADMAP.md                         # План, статусы, архитектура
-├── config.json                        # Параметры генератора ключей
+├── config.json                        # Параметры генератора и Python-матчера
 ├── ToDo.txt                           # Исходное ТЗ
 ├── КейЛОАД.txt                        # Список «Наименование, регион» (~6921 строк)
 ├── ToDo/
@@ -129,6 +129,14 @@ substring_search_in_powerquery_excel/
 
 ### Пример запуска
 
+Базовый запуск (параметры берутся из `config.json`, блок `gsz_matcher_parallel`):
+
+```bash
+python3 src/gsz_matcher_parallel.py
+```
+
+Запуск с переопределением отдельных параметров через CLI:
+
 ```bash
 python3 src/gsz_matcher_parallel.py \
   --input-xlsx "input/workbook.xlsx" \
@@ -139,6 +147,35 @@ python3 src/gsz_matcher_parallel.py \
   --gsz-column "Наименование, регион" \
   --workers 8 \
   --chunk-size 200
+```
+
+### Настройка через `config.json`
+
+Скрипт по умолчанию читает `config.json` из корня проекта и ожидает блок:
+
+```json
+{
+  "gsz_matcher_parallel": {
+    "input_xlsx": "input/workbook.xlsx",
+    "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "holding_table": "_HOLD_OD",
+    "base_table": "_base_gsz",
+    "holding_column": "Холдинг",
+    "gsz_column": "Наименование, регион",
+    "and_full_cols": ["key_and_full_1", "key_and_full_2", "key_and_full_3"],
+    "and_not_cols": ["key_and_not_1", "key_and_not_2", "key_and_not_3"],
+    "or_full_cols": ["key_or_full_1", "key_or_full_2", "key_or_full_3"],
+    "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
+    "workers": 8,
+    "chunk_size": 200
+  }
+}
+```
+
+Для альтернативного файла конфигурации:
+
+```bash
+python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 ```
 
 ### Что можно настроить
@@ -222,6 +259,7 @@ python3 src/generate_gsz_keys.py
 | `min_token_length` | `2` | Минимальная длина токена |
 | `short_token_not_max_len` | `5` | Порог для режима `not` |
 | `common_token_threshold` | `80` | Зарезервировано |
+| `gsz_matcher_parallel.*` | см. блок в примере выше | Настройки Python-матчера (файлы, таблицы, колонки, ключи, производительность) |
 
 ## Тестовые сценарии
 

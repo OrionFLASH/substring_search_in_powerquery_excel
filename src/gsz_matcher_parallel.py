@@ -30,6 +30,7 @@ DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
 DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 
 
 def normalize_text(value: Any) -> str:
@@ -108,7 +109,9 @@ class BaseMeta:
 
 
 def parse_cols(value: str) -> list[str]:
-    return [v.strip() for v in value.split(",") if v.strip()]
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [v.strip() for v in str(value).split(",") if v.strip()]
 
 
 def pick_best_anchor(tokens: list[Token]) -> Token | None:
@@ -291,64 +294,109 @@ def write_output_xlsx(
 
 def make_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Параллельное сопоставление холдингов и условных ГСЗ")
-    p.add_argument("--input-xlsx", required=True, help="Путь к исходной Excel-книге")
-    p.add_argument("--output-xlsx", required=True, help="Путь к выходному Excel-файлу")
-    p.add_argument("--holding-table", default="_HOLD_OD", help="Имя таблицы холдингов")
-    p.add_argument("--base-table", default="_base_gsz", help="Имя таблицы справочника ГСЗ")
-    p.add_argument("--holding-column", default="Холдинг", help="Колонка с текстом холдинга")
-    p.add_argument("--gsz-column", default="Наименование, регион", help="Колонка значения условного ГСЗ")
-    p.add_argument("--and-full-cols", default=",".join(DEFAULT_AND_FULL), help="AND full колонки через запятую")
-    p.add_argument("--and-not-cols", default=",".join(DEFAULT_AND_NOT), help="AND not колонки через запятую")
-    p.add_argument("--or-full-cols", default=",".join(DEFAULT_OR_FULL), help="OR full колонки через запятую")
-    p.add_argument("--or-not-cols", default=",".join(DEFAULT_OR_NOT), help="OR not колонки через запятую")
-    p.add_argument("--workers", type=int, default=max(1, (mp.cpu_count() or 2) - 1), help="Число процессов")
-    p.add_argument("--chunk-size", type=int, default=200, help="Размер чанка для process pool")
-    p.add_argument("--config-json", help="JSON-файл с параметрами (любые аргументы можно задать в нем)")
+    p.add_argument("--input-xlsx", help="Путь к исходной Excel-книге")
+    p.add_argument("--output-xlsx", help="Путь к выходному Excel-файлу")
+    p.add_argument("--holding-table", help="Имя таблицы холдингов")
+    p.add_argument("--base-table", help="Имя таблицы справочника ГСЗ")
+    p.add_argument("--holding-column", help="Колонка с текстом холдинга")
+    p.add_argument("--gsz-column", help="Колонка значения условного ГСЗ")
+    p.add_argument("--and-full-cols", help="AND full колонки через запятую")
+    p.add_argument("--and-not-cols", help="AND not колонки через запятую")
+    p.add_argument("--or-full-cols", help="OR full колонки через запятую")
+    p.add_argument("--or-not-cols", help="OR not колонки через запятую")
+    p.add_argument("--workers", type=int, help="Число процессов")
+    p.add_argument("--chunk-size", type=int, help="Размер чанка для process pool")
+    p.add_argument("--config-json", default=str(DEFAULT_CONFIG_PATH), help="JSON-файл с параметрами")
     return p
 
 
-def merge_args_with_config(args: argparse.Namespace) -> argparse.Namespace:
-    if not args.config_json:
-        return args
-    path = Path(args.config_json)
+def load_config(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"config-json не найден: {path}")
     with path.open(encoding="utf-8") as f:
-        cfg = json.load(f)
-    for k, v in cfg.items():
-        if hasattr(args, k):
-            setattr(args, k, v)
-    return args
+        return json.load(f)
+
+
+def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
+    cfg = load_config(Path(args.config_json).expanduser().resolve())
+    block = cfg.get("gsz_matcher_parallel", {})
+
+    defaults: dict[str, Any] = {
+        "input_xlsx": block.get("input_xlsx"),
+        "output_xlsx": block.get("output_xlsx"),
+        "holding_table": block.get("holding_table", "_HOLD_OD"),
+        "base_table": block.get("base_table", "_base_gsz"),
+        "holding_column": block.get("holding_column", "Холдинг"),
+        "gsz_column": block.get("gsz_column", "Наименование, регион"),
+        "and_full_cols": block.get("and_full_cols", DEFAULT_AND_FULL),
+        "and_not_cols": block.get("and_not_cols", DEFAULT_AND_NOT),
+        "or_full_cols": block.get("or_full_cols", DEFAULT_OR_FULL),
+        "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
+        "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
+        "chunk_size": block.get("chunk_size", 200),
+    }
+
+    # Обратная совместимость: можно использовать старые плоские ключи.
+    if defaults["input_xlsx"] is None and cfg.get("input_xlsx"):
+        defaults["input_xlsx"] = cfg.get("input_xlsx")
+    if defaults["output_xlsx"] is None and cfg.get("output_xlsx"):
+        defaults["output_xlsx"] = cfg.get("output_xlsx")
+
+    cli_overrides = {
+        "input_xlsx": args.input_xlsx,
+        "output_xlsx": args.output_xlsx,
+        "holding_table": args.holding_table,
+        "base_table": args.base_table,
+        "holding_column": args.holding_column,
+        "gsz_column": args.gsz_column,
+        "and_full_cols": args.and_full_cols,
+        "and_not_cols": args.and_not_cols,
+        "or_full_cols": args.or_full_cols,
+        "or_not_cols": args.or_not_cols,
+        "workers": args.workers,
+        "chunk_size": args.chunk_size,
+    }
+    for key, value in cli_overrides.items():
+        if value is not None:
+            defaults[key] = value
+
+    if not defaults["input_xlsx"] or not defaults["output_xlsx"]:
+        raise ValueError(
+            "Не заданы input/output пути для Python-матчера. "
+            "Укажите их в config.json (блок gsz_matcher_parallel) "
+            "или передайте --input-xlsx и --output-xlsx."
+        )
+    return defaults
 
 
 def main() -> None:
     parser = make_arg_parser()
     args = parser.parse_args()
-    args = merge_args_with_config(args)
+    settings = resolve_settings(args)
 
-    input_xlsx = Path(args.input_xlsx).expanduser().resolve()
-    output_xlsx = Path(args.output_xlsx).expanduser().resolve()
+    input_xlsx = Path(settings["input_xlsx"]).expanduser().resolve()
+    output_xlsx = Path(settings["output_xlsx"]).expanduser().resolve()
 
-    and_full_cols = parse_cols(args.and_full_cols)
-    and_not_cols = parse_cols(args.and_not_cols)
-    or_full_cols = parse_cols(args.or_full_cols)
-    or_not_cols = parse_cols(args.or_not_cols)
+    and_full_cols = parse_cols(settings["and_full_cols"])
+    and_not_cols = parse_cols(settings["and_not_cols"])
+    or_full_cols = parse_cols(settings["or_full_cols"])
+    or_not_cols = parse_cols(settings["or_not_cols"])
 
     t0 = time.perf_counter()
-    hold_rows = read_excel_table(input_xlsx, args.holding_table)
-    base_rows = read_excel_table(input_xlsx, args.base_table)
+    hold_rows = read_excel_table(input_xlsx, settings["holding_table"])
+    base_rows = read_excel_table(input_xlsx, settings["base_table"])
 
-    ensure_columns(hold_rows, [args.holding_column], f"таблице {args.holding_table}")
+    ensure_columns(hold_rows, [settings["holding_column"]], f"таблице {settings['holding_table']}")
     ensure_columns(
         base_rows,
-        [args.gsz_column] + and_full_cols + and_not_cols + or_full_cols + or_not_cols,
-        f"таблице {args.base_table}",
+        [settings["gsz_column"]] + and_full_cols + and_not_cols + or_full_cols + or_not_cols,
+        f"таблице {settings['base_table']}",
     )
 
     metas = tuple(
         build_meta_row(
             row=r,
-            gsz_col=args.gsz_column,
+            gsz_col=settings["gsz_column"],
             and_full_cols=and_full_cols,
             and_not_cols=and_not_cols,
             or_full_cols=or_full_cols,
@@ -357,10 +405,20 @@ def main() -> None:
         for r in base_rows
     )
 
-    holding_texts = [r.get(args.holding_column) for r in hold_rows]
+    holding_texts = [r.get(settings["holding_column"]) for r in hold_rows]
 
-    with ProcessPoolExecutor(max_workers=max(1, int(args.workers)), initializer=worker_init, initargs=(metas,)) as ex:
-        results = list(ex.map(match_single_holding, holding_texts, chunksize=max(1, int(args.chunk_size))))
+    with ProcessPoolExecutor(
+        max_workers=max(1, int(settings["workers"])),
+        initializer=worker_init,
+        initargs=(metas,),
+    ) as ex:
+        results = list(
+            ex.map(
+                match_single_holding,
+                holding_texts,
+                chunksize=max(1, int(settings["chunk_size"])),
+            )
+        )
 
     for row, res in zip(hold_rows, results):
         row["условное ГСЗ"] = res[0]
@@ -370,15 +428,18 @@ def main() -> None:
         output_path=output_xlsx,
         holding_rows=hold_rows,
         base_rows=base_rows,
-        holding_sheet=args.holding_table,
-        base_sheet=args.base_table,
+        holding_sheet=settings["holding_table"],
+        base_sheet=settings["base_table"],
     )
 
     t1 = time.perf_counter()
     print(f"Готово. Вход: {input_xlsx}")
     print(f"Результат: {output_xlsx}")
     print(f"Холдингов: {len(hold_rows)}, строк _base_gsz: {len(base_rows)}")
-    print(f"Потоков: {max(1, int(args.workers))}, chunksize: {max(1, int(args.chunk_size))}")
+    print(
+        f"Потоков: {max(1, int(settings['workers']))}, "
+        f"chunksize: {max(1, int(settings['chunk_size']))}"
+    )
     print(f"Время: {t1 - t0:.2f} сек")
 
 

@@ -3,5 +3,35 @@
   "output_file": "output/_base_gsz_keys.xlsx",
   "min_token_length": 2,
   "short_token_not_max_len": 5,
-  "common_token_threshold": 80
+  "common_token_threshold": 80,
+  "gsz_matcher_parallel": {
+    "input_xlsx": "input/workbook.xlsx",
+    "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "holding_table": "_HOLD_OD",
+    "base_table": "_base_gsz",
+    "holding_column": "Холдинг",
+    "gsz_column": "Наименование, регион",
+    "and_full_cols": [
+      "key_and_full_1",
+      "key_and_full_2",
+      "key_and_full_3"
+    ],
+    "and_not_cols": [
+      "key_and_not_1",
+      "key_and_not_2",
+      "key_and_not_3"
+    ],
+    "or_full_cols": [
+      "key_or_full_1",
+      "key_or_full_2",
+      "key_or_full_3"
+    ],
+    "or_not_cols": [
+      "key_or_not_1",
+      "key_or_not_2",
+      "key_or_not_3"
+    ],
+    "workers": 8,
+    "chunk_size": 200
+  }
 }
