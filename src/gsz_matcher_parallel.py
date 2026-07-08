@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
 
 
 DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
@@ -330,10 +331,10 @@ def candidate_indices_for_text(text: str, words: set[str]) -> list[int]:
     return [i for i, v in enumerate(mark) if v]
 
 
-def match_single_holding(text_value: Any) -> tuple[str, str, int]:
+def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...]]:
     text = normalize_text(text_value)
     if not text:
-        return "-", "-", 0
+        return "-", "-", 0, ()
     words = extract_words(text)
 
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
@@ -348,6 +349,7 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int]:
         return out
 
     matches: list[str] = []
+    matched_row_indices: list[int] = []
     for idx in candidate_indices_for_text(text, words):
         meta = BASE_METAS[idx]
         if not meta.has_keys:
@@ -378,16 +380,17 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int]:
             continue
 
         # Полное совпадение найдено.
+        matched_row_indices.append(idx)
         if meta.gsz_value:
             matches.append(meta.gsz_value)
 
     if not matches:
-        return "-", "-", 0
+        return "-", "-", 0, tuple(matched_row_indices)
 
     count = len(matches)
     debug_text = ";\n".join(matches)
     primary = "есть пересечения по ключам" if count > 1 else matches[0]
-    return primary, debug_text, count
+    return primary, debug_text, count, tuple(matched_row_indices)
 
 
 def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> None:
@@ -430,6 +433,86 @@ def apply_sheet_formatting(
         ws.freeze_panes = ws.cell(row=freeze_rows + 1, column=freeze_cols + 1)
 
 
+def get_header_index_map(ws: Any) -> dict[str, int]:
+    out: dict[str, int] = {}
+    if ws.max_row < 1:
+        return out
+    for col in range(1, ws.max_column + 1):
+        val = ws.cell(1, col).value
+        if val is not None:
+            out[str(val)] = col
+    return out
+
+
+def apply_min_column_widths(ws: Any, min_width: float) -> None:
+    for col in range(1, ws.max_column + 1):
+        col_letter = get_column_letter(col)
+        current = ws.column_dimensions[col_letter].width
+        current_val = float(current) if current is not None else 0.0
+        ws.column_dimensions[col_letter].width = max(min_width, current_val)
+
+
+def apply_column_min_width_by_header(ws: Any, header: str, min_width: float) -> None:
+    header_map = get_header_index_map(ws)
+    col = header_map.get(header)
+    if col is None:
+        return
+    col_letter = get_column_letter(col)
+    current = ws.column_dimensions[col_letter].width
+    current_val = float(current) if current is not None else 0.0
+    ws.column_dimensions[col_letter].width = max(min_width, current_val)
+
+
+def apply_wrap_for_column_by_header(ws: Any, header: str) -> None:
+    header_map = get_header_index_map(ws)
+    col = header_map.get(header)
+    if col is None:
+        return
+    for row in range(2, ws.max_row + 1):
+        cell = ws.cell(row=row, column=col)
+        existing = cell.alignment if cell.alignment is not None else Alignment()
+        cell.alignment = Alignment(
+            horizontal=existing.horizontal,
+            vertical=existing.vertical,
+            text_rotation=existing.text_rotation,
+            wrap_text=True,
+            shrink_to_fit=existing.shrink_to_fit,
+            indent=existing.indent,
+            relativeIndent=existing.relativeIndent,
+            justifyLastLine=existing.justifyLastLine,
+            readingOrder=existing.readingOrder,
+        )
+
+
+def enrich_base_rows(
+    base_rows: list[dict[str, Any]],
+    all_key_cols: list[str],
+    per_row_holding_counts: list[int],
+) -> None:
+    key_strings: list[str] = []
+    for idx, row in enumerate(base_rows):
+        parts: list[str] = []
+        for col in all_key_cols:
+            value = row.get(col)
+            text = normalize_text(value)
+            if text:
+                parts.append(text)
+        key_str = "_".join(parts)
+        key_strings.append(key_str)
+
+        row["кол-во холдингов"] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
+        row["строка ключа"] = key_str
+        row["длина ключа"] = len(key_str)
+
+    freq: dict[str, int] = {}
+    for ks in key_strings:
+        if ks:
+            freq[ks] = freq.get(ks, 0) + 1
+    for idx, row in enumerate(base_rows):
+        ks = key_strings[idx]
+        row["число повторов"] = freq.get(ks, 0) if ks else 0
+
+
 def write_output_xlsx(
     output_path: Path,
     holding_rows: list[dict[str, Any]],
@@ -450,12 +533,26 @@ def write_output_xlsx(
         header_center=bool(format_cfg.get("header_center", True)),
         header_wrap=bool(format_cfg.get("header_wrap", True)),
         header_bold=bool(format_cfg.get("header_bold", True)),
-        freeze_rows=max(0, int(format_cfg.get("freeze_rows", 1))),
-        freeze_cols=max(0, int(format_cfg.get("freeze_cols", 3))),
+        freeze_rows=max(0, int(format_cfg.get("holding_freeze_rows", format_cfg.get("freeze_rows", 1)))),
+        freeze_cols=max(0, int(format_cfg.get("holding_freeze_cols", format_cfg.get("freeze_cols", 3)))),
     )
+    apply_min_column_widths(ws1, float(format_cfg.get("min_width_all", 100)))
+    apply_column_min_width_by_header(ws1, "Отладка_совпадения_ГСЗ", float(format_cfg.get("holding_debug_min_width", 250)))
+    apply_column_min_width_by_header(ws1, "условное ГСЗ", float(format_cfg.get("holding_gsz_min_width", 250)))
+    if bool(format_cfg.get("holding_debug_wrap", True)):
+        apply_wrap_for_column_by_header(ws1, "Отладка_совпадения_ГСЗ")
 
     ws2 = wb.create_sheet(title=base_sheet[:31] if base_sheet else "base_gsz")
     write_sheet(ws2, base_rows)
+    apply_sheet_formatting(
+        ws=ws2,
+        header_center=bool(format_cfg.get("header_center", True)),
+        header_wrap=bool(format_cfg.get("header_wrap", True)),
+        header_bold=bool(format_cfg.get("header_bold", True)),
+        freeze_rows=max(0, int(format_cfg.get("base_freeze_rows", 1))),
+        freeze_cols=max(0, int(format_cfg.get("base_freeze_cols", 6))),
+    )
+    apply_min_column_widths(ws2, float(format_cfg.get("min_width_all", 100)))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
@@ -467,8 +564,15 @@ def chunked(seq: list[Any], size: int) -> list[list[Any]]:
     return [seq[i : i + size] for i in range(0, len(seq), size)]
 
 
-def match_holding_batch(text_batch: list[Any]) -> list[tuple[str, str, int]]:
-    return [match_single_holding(x) for x in text_batch]
+def match_holding_batch(text_batch: list[Any]) -> tuple[list[tuple[str, str, int]], dict[int, int]]:
+    rows_out: list[tuple[str, str, int]] = []
+    row_holding_counts: dict[int, int] = {}
+    for value in text_batch:
+        primary, debug_text, match_count, matched_indices = match_single_holding(value)
+        rows_out.append((primary, debug_text, match_count))
+        for idx in matched_indices:
+            row_holding_counts[idx] = row_holding_counts.get(idx, 0) + 1
+    return rows_out, row_holding_counts
 
 
 def short_text(value: Any, max_len: int = 80) -> str:
@@ -609,8 +713,14 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
                 "header_center": True,
                 "header_wrap": True,
                 "header_bold": True,
-                "freeze_rows": 1,
-                "freeze_cols": 3,
+                "holding_freeze_rows": 1,
+                "holding_freeze_cols": 3,
+                "base_freeze_rows": 1,
+                "base_freeze_cols": 6,
+                "min_width_all": 100,
+                "holding_debug_min_width": 250,
+                "holding_gsz_min_width": 250,
+                "holding_debug_wrap": True,
             },
         ),
         "output_add_timestamp": block.get("output_add_timestamp", True),
@@ -773,6 +883,7 @@ def main() -> None:
         if settings["log_stages"] and (idx % base_progress_every == 0 or idx == len(base_rows)):
             log(f"[progress-base] {idx}/{len(base_rows)}")
     metas = tuple(metas_list)
+    base_holding_counts = [0] * len(base_rows)
 
     total_holdings = len(hold_rows)
     total_base = len(base_rows)
@@ -810,7 +921,7 @@ def main() -> None:
         initargs=(metas,),
     ) as ex:
         future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
-        ordered_batches: dict[int, list[tuple[str, str]]] = {}
+        ordered_batches: dict[int, tuple[list[tuple[str, str, int]], dict[int, int]]] = {}
         next_idx_to_flush = 0
         completed_batches = 0
         next_batch_progress = progress_every_batches
@@ -850,9 +961,12 @@ def main() -> None:
                         next_batch_progress += progress_every_batches
 
             while next_idx_to_flush in ordered_batches:
-                batch_result = ordered_batches.pop(next_idx_to_flush)
+                batch_result, batch_counts = ordered_batches.pop(next_idx_to_flush)
                 results.extend(batch_result)
                 processed += len(batch_result)
+                for row_idx, cnt in batch_counts.items():
+                    if 0 <= row_idx < len(base_holding_counts):
+                        base_holding_counts[row_idx] += cnt
 
                 if processed >= next_progress or processed == total_holdings:
                     log(
@@ -875,6 +989,9 @@ def main() -> None:
         row["условное ГСЗ"] = res[0]
         row["Отладка_совпадения_ГСЗ"] = res[1]
         row["Кол-во совпадений"] = res[2]
+
+    all_key_cols = and_full_cols + and_not_cols + or_full_cols + or_not_cols
+    enrich_base_rows(base_rows, all_key_cols=all_key_cols, per_row_holding_counts=base_holding_counts)
 
     if settings["log_stages"]:
         log("[stage] Запись результата в Excel...")
