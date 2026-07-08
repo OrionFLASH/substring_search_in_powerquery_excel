@@ -41,6 +41,9 @@
     "progress_every_read_rows": 500,
     "heartbeat_seconds": 10,
     "show_current_holding": true,
-    "diagnose_workbook_objects": true
+    "diagnose_workbook_objects": true,
+    "log_to_file": true,
+    "logs_dir": "LOGS",
+    "log_file_prefix": "gsz_matcher_parallel"
   }
 }

@@ -22,6 +22,7 @@ import os
 import re
 import sys
 import time
+from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import wait
 from concurrent.futures import FIRST_COMPLETED
@@ -266,6 +267,7 @@ ANCHOR_NOT_INDEX: dict[str, tuple[int, ...]] = {}
 ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
 FULL_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
 NO_ANCHOR_INDICES: tuple[int, ...] = ()
+LOG_FILE_PATH: Path | None = None
 
 
 def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
@@ -442,6 +444,10 @@ def short_text(value: Any, max_len: int = 80) -> str:
 
 def log(message: str) -> None:
     print(message, flush=True)
+    if LOG_FILE_PATH is not None:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with LOG_FILE_PATH.open("a", encoding="utf-8") as f:
+            f.write(f"{ts} {message}\n")
 
 
 def configure_unbuffered_console_output() -> None:
@@ -450,6 +456,18 @@ def configure_unbuffered_console_output() -> None:
         sys.stdout.reconfigure(line_buffering=True, write_through=True)
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(line_buffering=True, write_through=True)
+
+
+def configure_file_logging(logs_dir: str, log_file_prefix: str) -> Path:
+    global LOG_FILE_PATH
+
+    root = Path(__file__).resolve().parent.parent
+    target_dir = (root / logs_dir).resolve() if not Path(logs_dir).is_absolute() else Path(logs_dir).resolve()
+    target_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_prefix = re.sub(r"[^a-zA-Z0-9_.-]+", "_", log_file_prefix).strip("_") or "gsz_matcher_parallel"
+    LOG_FILE_PATH = target_dir / f"{safe_prefix}_{ts}.log"
+    return LOG_FILE_PATH
 
 
 def build_progress_message(
@@ -544,6 +562,9 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "heartbeat_seconds": block.get("heartbeat_seconds", 10),
         "show_current_holding": block.get("show_current_holding", True),
         "diagnose_workbook_objects": block.get("diagnose_workbook_objects", True),
+        "log_to_file": block.get("log_to_file", True),
+        "logs_dir": block.get("logs_dir", "LOGS"),
+        "log_file_prefix": block.get("log_file_prefix", "gsz_matcher_parallel"),
     }
 
     # Обратная совместимость: можно использовать старые плоские ключи.
@@ -584,6 +605,13 @@ def main() -> None:
     parser = make_arg_parser()
     args = parser.parse_args()
     settings = resolve_settings(args)
+
+    if settings["log_to_file"]:
+        log_path = configure_file_logging(
+            logs_dir=str(settings["logs_dir"]),
+            log_file_prefix=str(settings["log_file_prefix"]),
+        )
+        log(f"[stage] File log: {log_path}")
 
     input_xlsx = Path(settings["input_xlsx"]).expanduser().resolve()
     output_xlsx = Path(settings["output_xlsx"]).expanduser().resolve()
