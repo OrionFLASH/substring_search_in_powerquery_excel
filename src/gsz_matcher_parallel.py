@@ -192,7 +192,12 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
     return True
 
 
-def read_excel_table(path: Path, table_name: str) -> list[dict[str, Any]]:
+def read_excel_table(
+    path: Path,
+    table_name: str,
+    log_enabled: bool = False,
+    progress_every_read_rows: int = 1000,
+) -> list[dict[str, Any]]:
     from openpyxl import load_workbook
     from openpyxl.utils.cell import range_boundaries
 
@@ -201,23 +206,32 @@ def read_excel_table(path: Path, table_name: str) -> list[dict[str, Any]]:
         if table_name in ws.tables:
             table = ws.tables[table_name]
             min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+            total_rows = max(0, max_row - min_row + 1)
             rows: list[list[Any]] = []
-            for row in ws.iter_rows(
-                min_row=min_row,
-                max_row=max_row,
-                min_col=min_col,
-                max_col=max_col,
-                values_only=True,
+            for idx, row in enumerate(
+                ws.iter_rows(
+                    min_row=min_row,
+                    max_row=max_row,
+                    min_col=min_col,
+                    max_col=max_col,
+                    values_only=True,
+                ),
+                start=1,
             ):
                 rows.append(list(row))
+                if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_rows):
+                    log(f"[progress-read] {table_name}: read_rows={idx}/{total_rows}")
             if not rows:
                 return []
             headers = [str(h) if h is not None else "" for h in rows[0]]
             body = rows[1:]
+            total_body = len(body)
             out: list[dict[str, Any]] = []
-            for row in body:
+            for idx, row in enumerate(body, start=1):
                 rec = {headers[i]: row[i] if i < len(row) else None for i in range(len(headers))}
                 out.append(rec)
+                if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_body):
+                    log(f"[progress-read] {table_name}: map_rows={idx}/{total_body}")
             return out
     raise ValueError(f"Таблица '{table_name}' не найдена в {path}")
 
@@ -404,6 +418,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "progress_every_holdings": block.get("progress_every_holdings", 1000),
         "progress_every_base_rows": block.get("progress_every_base_rows", 1000),
         "progress_every_batches": block.get("progress_every_batches", 25),
+        "progress_every_read_rows": block.get("progress_every_read_rows", 1000),
         "heartbeat_seconds": block.get("heartbeat_seconds", 10),
         "show_current_holding": block.get("show_current_holding", True),
     }
@@ -465,11 +480,21 @@ def main() -> None:
         )
     if settings["log_stages"]:
         log(f"[stage] Чтение таблицы {settings['holding_table']}...")
-    hold_rows = read_excel_table(input_xlsx, settings["holding_table"])
+    hold_rows = read_excel_table(
+        input_xlsx,
+        settings["holding_table"],
+        log_enabled=bool(settings["log_stages"]),
+        progress_every_read_rows=max(1, int(settings["progress_every_read_rows"])),
+    )
     if settings["log_stages"]:
         log(f"[stage] Таблица {settings['holding_table']} загружена: {len(hold_rows)} строк.")
         log(f"[stage] Чтение таблицы {settings['base_table']}...")
-    base_rows = read_excel_table(input_xlsx, settings["base_table"])
+    base_rows = read_excel_table(
+        input_xlsx,
+        settings["base_table"],
+        log_enabled=bool(settings["log_stages"]),
+        progress_every_read_rows=max(1, int(settings["progress_every_read_rows"])),
+    )
     if settings["log_stages"]:
         log(f"[stage] Таблица {settings['base_table']} загружена: {len(base_rows)} строк.")
 
