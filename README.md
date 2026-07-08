@@ -15,7 +15,7 @@
 Power Query-запрос `_HOLD_OD_GSZ` для каждой строки `_HOLD_OD` ищет совпадения в «Холдинг» по ключам из `_base_gsz` и возвращает:
 
 - **«условное ГСЗ»** — первое совпавшее «Наименование, регион» или `"-"`;
-- **«Отладка_совпадения_ГСЗ»** — все совпадения через `"; "` или `"-"`.
+- **«Отладка_совпадения_ГСЗ»** — все совпадения через `";"` и перенос строки (`";\n"`) или `"-"`.
 
 Исходная таблица `_HOLD_OD` не изменяется.
 
@@ -160,6 +160,8 @@ python3 src/gsz_matcher_parallel.py \
   "gsz_matcher_parallel": {
     "input_xlsx": "input/workbook.xlsx",
     "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "output_add_timestamp": true,
+    "output_timestamp_format": "%Y%m%d_%H%M%S",
     "holding_table": "_HOLD_OD",
     "base_table": "_base_gsz",
     "holding_column": "Холдинг",
@@ -181,12 +183,22 @@ python3 src/gsz_matcher_parallel.py \
     "diagnose_workbook_objects": true,
     "log_to_file": true,
     "logs_dir": "LOGS",
-    "log_file_prefix": "gsz_matcher_parallel"
+    "log_file_prefix": "gsz_matcher_parallel",
+    "output_format": {
+      "header_center": true,
+      "header_wrap": true,
+      "header_bold": true,
+      "freeze_rows": 1,
+      "freeze_cols": 3
+    }
   }
 }
 ```
 
 Важно: относительные пути (`input_xlsx`, `output_xlsx`, `logs_dir`) теперь резолвятся относительно папки, где лежит `config.json`, а не относительно рабочего каталога IDE.
+
+Если `output_add_timestamp=true`, к имени выходного файла автоматически добавляется таймштамп перед расширением, например:
+`hold_od_gsz_python_20260708_113500.xlsx`.
 
 Во время длинной обработки скрипт выводит:
 - стадии выполнения (`[stage] ...`);
@@ -228,8 +240,18 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 ### Формат результата
 
 В выходной Excel пишется лист с холдингами и добавленными колонками:
-- `условное ГСЗ` (первое совпадение или `-`)
-- `Отладка_совпадения_ГСЗ` (все совпадения или `-`)
+- `условное ГСЗ`
+  - если совпадений 0: `-`
+  - если совпадение 1: первое найденное условное ГСЗ
+  - если совпадений > 1: `есть пересечения по ключам`
+- `Отладка_совпадения_ГСЗ` (все совпадения через `";\n"` или `-`)
+- `Кол-во совпадений` (число совпавших условных ГСЗ)
+
+Форматирование выходного листа `_HOLD_OD` управляется через `output_format`:
+- заголовки по центру (`header_center`)
+- перенос строк в заголовках (`header_wrap`)
+- жирные заголовки (`header_bold`)
+- закрепление областей (`freeze_rows`, `freeze_cols`), например 1 строка и 3 колонки
 
 ### Шаги запроса (основные)
 

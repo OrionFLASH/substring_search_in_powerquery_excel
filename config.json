@@ -7,6 +7,8 @@
   "gsz_matcher_parallel": {
     "input_xlsx": "input/workbook.xlsx",
     "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "output_add_timestamp": true,
+    "output_timestamp_format": "%Y%m%d_%H%M%S",
     "holding_table": "_HOLD_OD",
     "base_table": "_base_gsz",
     "holding_column": "Холдинг",
@@ -44,6 +46,13 @@
     "diagnose_workbook_objects": true,
     "log_to_file": true,
     "logs_dir": "LOGS",
-    "log_file_prefix": "gsz_matcher_parallel"
+    "log_file_prefix": "gsz_matcher_parallel",
+    "output_format": {
+      "header_center": true,
+      "header_wrap": true,
+      "header_bold": true,
+      "freeze_rows": 1,
+      "freeze_cols": 3
+    }
   }
 }
