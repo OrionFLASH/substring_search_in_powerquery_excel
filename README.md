@@ -37,7 +37,9 @@ substring_search_in_powerquery_excel/
 │   │   ├── _HOLD_OD_GSZ.pq            # Базовый M-скрипт запроса
 │   │   └── _HOLD_OD_GSZ_FAST.pq       # Ускоренная версия для больших объемов
 │   ├── generate_gsz_keys.py           # Генератор ключей → Excel (локально)
-│   └── gsz_matcher_parallel.py        # Python-сопоставление (параллельно)
+│   ├── gsz_matcher_parallel.py        # Python-сопоставление (параллельно)
+│   └── Tests/
+│       └── test_gsz_matcher_parity.py # Регресс: якорный предфильтр vs полный перебор
 └── output/                            # Локальный вывод (в git не попадает)
     └── _base_gsz_keys.xlsx            # Создаётся скриптом
 ```
@@ -118,11 +120,13 @@ substring_search_in_powerquery_excel/
 - непересечение позиций AND-токенов.
 
 Дополнительно:
-- использует предфильтр по "якорному" токену,
-- строит индекс кандидатов по anchor-not и anchor-full (в воркерах),
-- кэширует позиции токенов в рамках одного холдинга, чтобы не пересчитывать их многократно,
-- запускает сопоставление в несколько процессов (`ProcessPoolExecutor`),
-- позволяет задать имена таблиц и колонок через аргументы.
+- использует предфильтр по «якорному» токену (для `not`-якорей — через `positions_not`, не через токенизацию слов);
+- строит индекс кандидатов по anchor-not и anchor-full (в воркерах);
+- кэширует позиции токенов в рамках одного холдинга, чтобы не пересчитывать их многократно;
+- читает Excel в `read_only` (двухпроходно: границы смарт-таблицы, затем данные);
+- запускает сопоставление в несколько процессов (`ProcessPoolExecutor`);
+- позволяет задать имена таблиц и колонок через аргументы;
+- регресс-тест parity: `src/Tests/test_gsz_matcher_parity.py` (fast vs полный перебор на всех холдингах).
 
 ### Зависимости
 
@@ -150,7 +154,7 @@ python3 src/gsz_matcher_parallel.py \
   --holding-column "Холдинг" \
   --gsz-column "Наименование, регион" \
   --workers 8 \
-  --chunk-size 200
+  --work-batch-size 30
 ```
 
 ### Настройка через `config.json`
@@ -173,7 +177,6 @@ python3 src/gsz_matcher_parallel.py \
     "or_full_cols": ["key_or_full_1", "key_or_full_2", "key_or_full_3"],
     "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
     "workers": 8,
-    "chunk_size": 100,
     "work_batch_size": 30,
     "log_stages": true,
     "progress_every_holdings": 100,
@@ -197,7 +200,8 @@ python3 src/gsz_matcher_parallel.py \
       "min_width_all": 100,
       "holding_debug_min_width": 250,
       "holding_gsz_min_width": 250,
-      "holding_debug_wrap": true
+      "holding_debug_wrap": true,
+      "format_data_vertical_center": true
     }
   }
 }
@@ -242,7 +246,7 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
   - `--and-not-cols`
   - `--or-full-cols`
   - `--or-not-cols`
-- производительность: `--workers`, `--chunk-size`
+- производительность: `--workers`, `--work-batch-size`
 - загрузка параметров из JSON: `--config-json`
 
 ### Формат результата
@@ -270,8 +274,18 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 - минимальная ширина всех колонок (`min_width_all`)
 - минимальная ширина колонок `условное ГСЗ` и `Отладка_совпадения_ГСЗ`
 - перенос по всей колонке отладки (`holding_debug_wrap`)
+- вертикальное центрирование всех ячеек обоих листов (`format_data_vertical_center`, по умолчанию `true`; `false` ускоряет запись)
 - автофильтр включается для каждого листа по всей области данных
-- вертикальное центрирование применяется ко всем ячейкам обоих листов
+
+### Регресс-тест (parity)
+
+Проверка, что якорный предфильтр даёт тот же результат, что и полный перебор:
+
+```bash
+python3 -m unittest src.Tests.test_gsz_matcher_parity -v
+```
+
+На тестовой книге `input/workbook.xlsx` (26 000 холдингов × 6 921 строк справочника) полный прогон занимает ~7–9 с (зависит от форматирования выходного файла).
 
 ### Шаги запроса (основные)
 
@@ -363,3 +377,4 @@ python3 src/generate_gsz_keys.py
 | 1.2 | 2026-07-07 | Полная документация, `.gitignore` (без xlsx в репозитории) |
 | 1.3 | 2026-07-08 | Добавлен ускоренный запрос `_HOLD_OD_GSZ_FAST` и обновлена документация |
 | 1.4 | 2026-07-08 | Обновлены доки: `КейЛОАД.txt` переведен в локальный артефакт (`.gitignore`) |
+| 1.5 | 2026-07-10 | Оптимизации Python-матчера: исправлен not-якорь, read_only, форматирование; тест parity; `work_batch_size` вместо `chunk_size` |

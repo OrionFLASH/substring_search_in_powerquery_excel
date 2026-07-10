@@ -197,6 +197,22 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
     return True
 
 
+def find_table_ref(path: Path, table_name: str) -> tuple[str, tuple[int, int, int, int]]:
+    """Найти лист и границы смарт-таблицы."""
+    from openpyxl import load_workbook
+    from openpyxl.utils.cell import range_boundaries
+
+    wb = load_workbook(path, data_only=True, read_only=False)
+    try:
+        for ws in wb.worksheets:
+            if table_name in ws.tables:
+                min_col, min_row, max_col, max_row = range_boundaries(ws.tables[table_name].ref)
+                return ws.title, (min_col, min_row, max_col, max_row)
+    finally:
+        wb.close()
+    raise ValueError(f"Таблица '{table_name}' не найдена в {path}")
+
+
 def read_excel_table(
     path: Path,
     table_name: str,
@@ -204,41 +220,42 @@ def read_excel_table(
     progress_every_read_rows: int = 1000,
 ) -> list[dict[str, Any]]:
     from openpyxl import load_workbook
-    from openpyxl.utils.cell import range_boundaries
 
-    wb = load_workbook(path, data_only=True, read_only=False)
-    for ws in wb.worksheets:
-        if table_name in ws.tables:
-            table = ws.tables[table_name]
-            min_col, min_row, max_col, max_row = range_boundaries(table.ref)
-            total_rows = max(0, max_row - min_row + 1)
-            rows: list[list[Any]] = []
-            for idx, row in enumerate(
-                ws.iter_rows(
-                    min_row=min_row,
-                    max_row=max_row,
-                    min_col=min_col,
-                    max_col=max_col,
-                    values_only=True,
-                ),
-                start=1,
-            ):
-                rows.append(list(row))
-                if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_rows):
-                    log(f"[progress-read] {table_name}: read_rows={idx}/{total_rows}")
-            if not rows:
-                return []
-            headers = [str(h) if h is not None else "" for h in rows[0]]
-            body = rows[1:]
-            total_body = len(body)
-            out: list[dict[str, Any]] = []
-            for idx, row in enumerate(body, start=1):
-                rec = {headers[i]: row[i] if i < len(row) else None for i in range(len(headers))}
-                out.append(rec)
-                if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_body):
-                    log(f"[progress-read] {table_name}: map_rows={idx}/{total_body}")
-            return out
-    raise ValueError(f"Таблица '{table_name}' не найдена в {path}")
+    sheet_title, (min_col, min_row, max_col, max_row) = find_table_ref(path, table_name)
+    total_rows = max(0, max_row - min_row + 1)
+    rows: list[list[Any]] = []
+
+    wb = load_workbook(path, data_only=True, read_only=True)
+    try:
+        ws = wb[sheet_title]
+        for idx, row in enumerate(
+            ws.iter_rows(
+                min_row=min_row,
+                max_row=max_row,
+                min_col=min_col,
+                max_col=max_col,
+                values_only=True,
+            ),
+            start=1,
+        ):
+            rows.append(list(row))
+            if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_rows):
+                log(f"[progress-read] {table_name}: read_rows={idx}/{total_rows}")
+    finally:
+        wb.close()
+
+    if not rows:
+        return []
+    headers = [str(h) if h is not None else "" for h in rows[0]]
+    body = rows[1:]
+    total_body = len(body)
+    out: list[dict[str, Any]] = []
+    for idx, row in enumerate(body, start=1):
+        rec = {headers[i]: row[i] if i < len(row) else None for i in range(len(headers))}
+        out.append(rec)
+        if log_enabled and (idx % max(1, progress_every_read_rows) == 0 or idx == total_body):
+            log(f"[progress-read] {table_name}: map_rows={idx}/{total_body}")
+    return out
 
 
 def inspect_workbook_objects(path: Path) -> dict[str, Any]:
@@ -268,6 +285,7 @@ BASE_METAS: tuple[BaseMeta, ...] = ()
 ANCHOR_NOT_INDEX: dict[str, tuple[int, ...]] = {}
 ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
 FULL_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
+NOT_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
 NO_ANCHOR_INDICES: tuple[int, ...] = ()
 LOG_FILE_PATH: Path | None = None
 
@@ -277,6 +295,7 @@ def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
     global ANCHOR_NOT_INDEX
     global ANCHOR_FULL_INDEX
     global FULL_ANCHOR_WORDS_BY_CH
+    global NOT_ANCHOR_WORDS_BY_CH
     global NO_ANCHOR_INDICES
 
     BASE_METAS = base_metas
@@ -298,15 +317,21 @@ def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
     ANCHOR_FULL_INDEX = {k: tuple(v) for k, v in full_index.items()}
     NO_ANCHOR_INDICES = tuple(no_anchor)
 
-    by_ch: dict[str, list[str]] = {}
+    full_by_ch: dict[str, list[str]] = {}
     for word in ANCHOR_FULL_INDEX:
-        unique_chars = set(word)
-        for ch in unique_chars:
-            by_ch.setdefault(ch, []).append(word)
-    FULL_ANCHOR_WORDS_BY_CH = {k: tuple(v) for k, v in by_ch.items()}
+        for ch in set(word):
+            full_by_ch.setdefault(ch, []).append(word)
+    FULL_ANCHOR_WORDS_BY_CH = {k: tuple(v) for k, v in full_by_ch.items()}
+
+    not_by_ch: dict[str, list[str]] = {}
+    for word in ANCHOR_NOT_INDEX:
+        for ch in set(word):
+            not_by_ch.setdefault(ch, []).append(word)
+    NOT_ANCHOR_WORDS_BY_CH = {k: tuple(v) for k, v in not_by_ch.items()}
 
 
-def candidate_indices_for_text(text: str, words: set[str]) -> list[int]:
+def candidate_indices_for_text(text: str) -> list[int]:
+    """Индексы кандидатов _base_gsz по якорным ключам (предфильтр)."""
     if not BASE_METAS:
         return []
 
@@ -314,9 +339,16 @@ def candidate_indices_for_text(text: str, words: set[str]) -> list[int]:
     for idx in NO_ANCHOR_INDICES:
         mark[idx] = 1
 
-    for w in words:
-        for idx in ANCHOR_NOT_INDEX.get(w, ()):
-            mark[idx] = 1
+    # not-якоря: границы слова, а не токены extract_words (иначе теряются совпадения вроде «мега» в «мега35»)
+    seen_not_words: set[str] = set()
+    for ch in set(text):
+        for w in NOT_ANCHOR_WORDS_BY_CH.get(ch, ()):
+            if w in seen_not_words:
+                continue
+            seen_not_words.add(w)
+            if w in text and positions_not(text, w):
+                for idx in ANCHOR_NOT_INDEX.get(w, ()):
+                    mark[idx] = 1
 
     seen_full_words: set[str] = set()
     for ch in set(text):
@@ -335,7 +367,6 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
     text = normalize_text(text_value)
     if not text:
         return "-", "-", 0, ()
-    words = extract_words(text)
 
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
 
@@ -350,7 +381,7 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
 
     matches: list[str] = []
     matched_row_indices: list[int] = []
-    for idx in candidate_indices_for_text(text, words):
+    for idx in candidate_indices_for_text(text):
         meta = BASE_METAS[idx]
         if not meta.has_keys:
             continue
@@ -393,6 +424,66 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
     return primary, debug_text, count, tuple(matched_row_indices)
 
 
+def match_single_holding_brute(text_value: Any) -> tuple[str, str, int, tuple[int, ...]]:
+    """Полный перебор справочника без якорного предфильтра (для регресс-тестов)."""
+    text = normalize_text(text_value)
+    if not text:
+        return "-", "-", 0, ()
+
+    pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
+
+    def get_positions(word: str, is_full: bool) -> list[tuple[int, int]]:
+        key = (word, is_full)
+        cached = pos_cache.get(key)
+        if cached is not None:
+            return cached
+        out = all_positions_full(text, word) if is_full else positions_not(text, word)
+        pos_cache[key] = out
+        return out
+
+    matches: list[str] = []
+    matched_row_indices: list[int] = []
+    for idx, meta in enumerate(BASE_METAS):
+        if not meta.has_keys:
+            continue
+
+        ok_and = True
+        if meta.and_tokens:
+            position_lists: list[list[tuple[int, int]]] = []
+            for t in meta.and_tokens:
+                pos = get_positions(t.word, t.is_full)
+                if not pos:
+                    ok_and = False
+                    break
+                position_lists.append(pos)
+            if ok_and and not and_non_overlapping(position_lists):
+                ok_and = False
+        if not ok_and:
+            continue
+
+        ok_or = True
+        if meta.or_tokens:
+            ok_or = False
+            for t in meta.or_tokens:
+                if get_positions(t.word, t.is_full):
+                    ok_or = True
+                    break
+        if not ok_or:
+            continue
+
+        matched_row_indices.append(idx)
+        if meta.gsz_value:
+            matches.append(meta.gsz_value)
+
+    if not matches:
+        return "-", "-", 0, tuple(matched_row_indices)
+
+    count = len(matches)
+    debug_text = ";\n".join(matches)
+    primary = "есть пересечения по ключам" if count > 1 else matches[0]
+    return primary, debug_text, count, tuple(matched_row_indices)
+
+
 def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> None:
     if not rows:
         raise ValueError(f"{where} пуста")
@@ -418,6 +509,7 @@ def apply_sheet_formatting(
     header_bold: bool,
     freeze_rows: int,
     freeze_cols: int,
+    format_data_vertical_center: bool = True,
 ) -> None:
     if ws.max_row >= 1:
         for cell in ws[1]:
@@ -429,21 +521,21 @@ def apply_sheet_formatting(
             if header_bold:
                 cell.font = Font(name=cell.font.name, size=cell.font.size, bold=True)
 
-    # Вертикальное центрирование для всех ячеек листа.
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-        for cell in row:
-            existing = cell.alignment if cell.alignment is not None else Alignment()
-            cell.alignment = Alignment(
-                horizontal=existing.horizontal,
-                vertical="center",
-                text_rotation=existing.text_rotation,
-                wrap_text=existing.wrap_text,
-                shrink_to_fit=existing.shrink_to_fit,
-                indent=existing.indent,
-                relativeIndent=existing.relativeIndent,
-                justifyLastLine=existing.justifyLastLine,
-                readingOrder=existing.readingOrder,
-            )
+    if format_data_vertical_center and ws.max_row >= 2:
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            for cell in row:
+                existing = cell.alignment if cell.alignment is not None else Alignment()
+                cell.alignment = Alignment(
+                    horizontal=existing.horizontal,
+                    vertical="center",
+                    text_rotation=existing.text_rotation,
+                    wrap_text=existing.wrap_text,
+                    shrink_to_fit=existing.shrink_to_fit,
+                    indent=existing.indent,
+                    relativeIndent=existing.relativeIndent,
+                    justifyLastLine=existing.justifyLastLine,
+                    readingOrder=existing.readingOrder,
+                )
 
     # Автофильтр по всей области данных листа.
     if ws.max_row >= 1 and ws.max_column >= 1:
@@ -493,7 +585,7 @@ def apply_wrap_for_column_by_header(ws: Any, header: str) -> None:
         existing = cell.alignment if cell.alignment is not None else Alignment()
         cell.alignment = Alignment(
             horizontal=existing.horizontal,
-            vertical=existing.vertical,
+            vertical="center",
             text_rotation=existing.text_rotation,
             wrap_text=True,
             shrink_to_fit=existing.shrink_to_fit,
@@ -555,6 +647,7 @@ def write_output_xlsx(
         header_bold=bool(format_cfg.get("header_bold", True)),
         freeze_rows=max(0, int(format_cfg.get("holding_freeze_rows", format_cfg.get("freeze_rows", 1)))),
         freeze_cols=max(0, int(format_cfg.get("holding_freeze_cols", format_cfg.get("freeze_cols", 3)))),
+        format_data_vertical_center=bool(format_cfg.get("format_data_vertical_center", True)),
     )
     apply_min_column_widths(ws1, float(format_cfg.get("min_width_all", 100)))
     apply_column_min_width_by_header(ws1, "Отладка_совпадения_ГСЗ", float(format_cfg.get("holding_debug_min_width", 250)))
@@ -571,6 +664,7 @@ def write_output_xlsx(
         header_bold=bool(format_cfg.get("header_bold", True)),
         freeze_rows=max(0, int(format_cfg.get("base_freeze_rows", 1))),
         freeze_cols=max(0, int(format_cfg.get("base_freeze_cols", 6))),
+        format_data_vertical_center=bool(format_cfg.get("format_data_vertical_center", True)),
     )
     apply_min_column_widths(ws2, float(format_cfg.get("min_width_all", 100)))
 
@@ -685,7 +779,8 @@ def make_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--or-full-cols", help="OR full колонки через запятую")
     p.add_argument("--or-not-cols", help="OR not колонки через запятую")
     p.add_argument("--workers", type=int, help="Число процессов")
-    p.add_argument("--chunk-size", type=int, help="Размер чанка для process pool")
+    p.add_argument("--work-batch-size", type=int, help="Размер батча холдингов на один worker")
+    p.add_argument("--chunk-size", type=int, help=argparse.SUPPRESS)
     p.add_argument("--config-json", default=str(DEFAULT_CONFIG_PATH), help="JSON-файл с параметрами")
     return p
 
@@ -714,7 +809,6 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "or_full_cols": block.get("or_full_cols", DEFAULT_OR_FULL),
         "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
         "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
-        "chunk_size": block.get("chunk_size", 200),
         "work_batch_size": block.get("work_batch_size", 50),
         "log_stages": block.get("log_stages", True),
         "progress_every_holdings": block.get("progress_every_holdings", 1000),
@@ -741,6 +835,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
                 "holding_debug_min_width": 250,
                 "holding_gsz_min_width": 250,
                 "holding_debug_wrap": True,
+                "format_data_vertical_center": True,
             },
         ),
         "output_add_timestamp": block.get("output_add_timestamp", True),
@@ -766,7 +861,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "or_full_cols": args.or_full_cols,
         "or_not_cols": args.or_not_cols,
         "workers": args.workers,
-        "chunk_size": args.chunk_size,
+        "work_batch_size": args.work_batch_size if args.work_batch_size is not None else args.chunk_size,
     }
     for key, value in cli_overrides.items():
         if value is not None:
@@ -829,7 +924,7 @@ def main() -> None:
         log(f"[stage] Script={Path(__file__).resolve()} pid={os.getpid()}")
         log("[stage] Запуск Python-матчера.")
         log(
-            f"[stage] Конфиг: workers={settings['workers']}, chunk_size={settings['chunk_size']}, "
+            f"[stage] Конфиг: workers={settings['workers']}, "
             f"work_batch_size={settings['work_batch_size']}, "
             f"progress_every={settings['progress_every_holdings']}, "
             f"heartbeat={settings['heartbeat_seconds']}s"
@@ -916,7 +1011,6 @@ def main() -> None:
         )
 
     holding_texts = [r.get(settings["holding_column"]) for r in hold_rows]
-    pool_chunk_size = max(1, int(settings["chunk_size"]))
     work_batch_size = max(1, int(settings["work_batch_size"]))
     progress_every = max(1, int(settings["progress_every_holdings"]))
     progress_every_batches = max(1, int(settings["progress_every_batches"]))
@@ -927,7 +1021,7 @@ def main() -> None:
     if settings["log_stages"]:
         log(
             f"[stage] Старт сопоставления: workers={workers}, work_batch={work_batch_size}, "
-            f"pool_chunk={pool_chunk_size}, progress_every={progress_every}, "
+            f"progress_every={progress_every}, "
             f"progress_every_batches={progress_every_batches}"
         )
 
@@ -1032,8 +1126,7 @@ def main() -> None:
     log(f"Холдингов: {len(hold_rows)}, строк _base_gsz: {len(base_rows)}")
     log(
         f"Потоков: {max(1, int(settings['workers']))}, "
-        f"work_batch: {max(1, int(settings['work_batch_size']))}, "
-        f"pool_chunk: {max(1, int(settings['chunk_size']))}"
+        f"work_batch: {max(1, int(settings['work_batch_size']))}"
     )
     log(f"Время: {t1 - t0:.2f} сек")
 
