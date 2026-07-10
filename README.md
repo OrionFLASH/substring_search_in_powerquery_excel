@@ -28,7 +28,8 @@ substring_search_in_powerquery_excel/
 ├── config.json                        # Параметры генератора и Python-матчера
 ├── ToDo.txt                           # Исходное ТЗ
 ├── КейЛОАД.txt                        # Локальный входной файл (в .gitignore)
-├── ToDo/
+├── input/
+│   └── workbook.xlsx                  # Тестовая книга (в git, см. config.json)
 │   ├── Бизнес-требования_ГСЗ-сопоставление.md   # Формализованные требования PQ
 │   └── Бизнес-требования.md                     # Сторонний документ (не по этому проекту)
 ├── src/
@@ -41,7 +42,8 @@ substring_search_in_powerquery_excel/
     └── _base_gsz_keys.xlsx            # Создаётся скриптом
 ```
 
-Файлы `*.xlsx`, папка `output/` и `КейЛОАД.txt` **не коммитятся** — используются локально.
+Файлы `output/*.xlsx`, `КейЛОАД.txt` и прочие Excel **не коммитятся**.  
+Исключение: `input/workbook.xlsx` — эталонная тестовая книга для `gsz_matcher_parallel`.
 
 ## Логика ключей
 

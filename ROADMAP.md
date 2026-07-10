@@ -180,10 +180,12 @@ fnСтрокаGszСовпала → fnНайтиВсеGsz                       
 | `src/generate_gsz_keys.py` | да | Генератор ключей |
 | `config.json` | да | Параметры генератора |
 | `КейЛОАД.txt` | **нет** | Локальный входной файл для генератора ключей |
+| `input/workbook.xlsx` | **да** | Тестовая книга (`_base_gsz` + `_HOLD_OD`, 26k холдингов) |
 | `output/*.xlsx` | **нет** | Локальный результат (`output/.gitkeep` — в git) |
-| `*.xlsx` | **нет** | Любые Excel-файлы |
+| прочие `*.xlsx` | **нет** | Генерируемые артефакты |
 
-`.gitignore` исключает `*.xlsx`, `output/`, `КейЛОАД.txt`, `log/`, `.venv/`.
+`.gitignore` исключает `output/*.xlsx`, `КейЛОАД.txt`, `LOGS/`, `log/`, `.venv/`.  
+Исключение: `input/workbook.xlsx` включён в репозиторий.
 
 ---
 
