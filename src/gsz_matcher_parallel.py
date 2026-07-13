@@ -57,12 +57,23 @@ DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
 DEFAULT_MIN_WIDTH_ALL = 30.0
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 
-# Тексты колонки «статус» (имена колонок задаются в output_format).
-STATUS_FIXED = "зафиксированное значение"
-STATUS_SINGLE = "найдено соответствие"
-STATUS_MULTIPLE = "есть пересечения по ключам"
-STATUS_FIX_NOT_FOUND = "фикс значение не найдено"
-STATUS_NONE = "-"
+# Тексты колонки «статус» по умолчанию (переопределяются через match_status_texts в config).
+DEFAULT_STATUS_NONE = "-"
+DEFAULT_STATUS_SINGLE = "найдено соответствие"
+DEFAULT_STATUS_FIXED = "зафиксированное значение"
+DEFAULT_STATUS_MULTIPLE = "есть пересечения по ключам"
+DEFAULT_STATUS_FIX_NOT_FOUND = "фикс значение не найдено"
+DEFAULT_STATUS_FIX_PARTIAL = "найдена часть фиксированных значений"
+DEFAULT_STATUS_MULTIPLE_PLACEHOLDER = "=>"
+
+# Обратная совместимость для тестов и внешних импортов.
+STATUS_NONE = DEFAULT_STATUS_NONE
+STATUS_SINGLE = DEFAULT_STATUS_SINGLE
+STATUS_FIXED = DEFAULT_STATUS_FIXED
+STATUS_MULTIPLE = DEFAULT_STATUS_MULTIPLE
+STATUS_FIX_NOT_FOUND = DEFAULT_STATUS_FIX_NOT_FOUND
+STATUS_FIX_PARTIAL = DEFAULT_STATUS_FIX_PARTIAL
+STATUS_MULTIPLE_PLACEHOLDER = DEFAULT_STATUS_MULTIPLE_PLACEHOLDER
 
 
 @dataclass(frozen=True)
@@ -166,6 +177,22 @@ def extract_words(text: str) -> set[str]:
 
 
 @dataclass(frozen=True)
+class MatchStatusTexts:
+    """Настраиваемые тексты статусов и плейсхолдер для множественных совпадений."""
+
+    none: str = DEFAULT_STATUS_NONE
+    single: str = DEFAULT_STATUS_SINGLE
+    fixed: str = DEFAULT_STATUS_FIXED
+    multiple: str = DEFAULT_STATUS_MULTIPLE
+    fix_not_found: str = DEFAULT_STATUS_FIX_NOT_FOUND
+    fix_partial: str = DEFAULT_STATUS_FIX_PARTIAL
+    multiple_placeholder: str = DEFAULT_STATUS_MULTIPLE_PLACEHOLDER
+
+
+DEFAULT_MATCH_STATUS_TEXTS = MatchStatusTexts()
+
+
+@dataclass(frozen=True)
 class Token:
     """Один ключ поиска: слово и режим full (подстрока) / not (отдельное слово)."""
 
@@ -218,43 +245,121 @@ def parse_fix_ids(value: Any) -> tuple[str, ...]:
     return tuple(p.strip() for p in parts if p.strip())
 
 
+def load_match_status_texts(block: dict[str, Any]) -> MatchStatusTexts:
+    """Загрузка текстов статусов из config.json (блок gsz_matcher_parallel)."""
+    raw = block.get("match_status_texts", {})
+    if not isinstance(raw, dict):
+        return DEFAULT_MATCH_STATUS_TEXTS
+    return MatchStatusTexts(
+        none=str(raw.get("none", DEFAULT_STATUS_NONE)),
+        single=str(raw.get("single", DEFAULT_STATUS_SINGLE)),
+        fixed=str(raw.get("fixed", DEFAULT_STATUS_FIXED)),
+        multiple=str(raw.get("multiple", DEFAULT_STATUS_MULTIPLE)),
+        fix_not_found=str(raw.get("fix_not_found", DEFAULT_STATUS_FIX_NOT_FOUND)),
+        fix_partial=str(raw.get("fix_partial", DEFAULT_STATUS_FIX_PARTIAL)),
+        multiple_placeholder=str(raw.get("multiple_placeholder", DEFAULT_STATUS_MULTIPLE_PLACEHOLDER)),
+    )
+
+
+def join_status_lines(lines: list[str]) -> str:
+    """Объединение статусов в одну ячейку (каждый с новой строки, без дублей)."""
+    unique: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        if line and line not in seen:
+            seen.add(line)
+            unique.append(line)
+    return "\n".join(unique) if unique else ""
+
+
 def resolve_fix_mode(fix_ids: tuple[str, ...], holdings_id_set: frozenset[str]) -> str:
-    """Режим fix: none — пусто; resolved — хотя бы один ID найден; fallback — ID не найдены."""
+    """Режим fix: none | resolved (все ID) | partial (часть ID) | fallback (ни одного)."""
     if not fix_ids:
         return "none"
-    if any(fid in holdings_id_set for fid in fix_ids):
+    found_count = sum(1 for fid in fix_ids if fid in holdings_id_set)
+    if found_count == 0:
+        return "fallback"
+    if found_count == len(fix_ids):
         return "resolved"
-    return "fallback"
+    return "partial"
 
 
-def compute_holding_status(match_count: int, fixed_count: int) -> str:
-    """Статус для листа холдингов по числу совпадений и fix-совпадений."""
+def compute_holding_status_lines(
+    match_count: int,
+    fixed_count: int,
+    texts: MatchStatusTexts,
+) -> str:
+    """Статусы для листа холдингов — все применимые, каждый с новой строки."""
     if match_count == 0:
-        return STATUS_NONE
-    if fixed_count == match_count:
-        return STATUS_FIXED
-    if match_count == 1:
-        return STATUS_SINGLE
-    return STATUS_MULTIPLE
+        return texts.none
+    lines: list[str] = []
+    key_count = match_count - fixed_count
+    if fixed_count > 0:
+        lines.append(texts.fixed)
+    if key_count > 1:
+        lines.append(texts.multiple)
+    elif key_count == 1 and fixed_count == 0:
+        lines.append(texts.single)
+    elif key_count == 1 and fixed_count > 0:
+        lines.append(texts.single)
+    return join_status_lines(lines) or texts.none
 
 
-def compute_base_row_status(meta: BaseMeta, matched: list[tuple[int, bool]]) -> str:
-    """Статус для строки _base_gsz по режиму fix и списку сматченных холдингов."""
-    if not matched:
+def compute_base_row_status_lines(
+    meta: BaseMeta,
+    matched_pairs: list[tuple[int, bool]],
+    texts: MatchStatusTexts,
+) -> str:
+    """Статусы для строки _base_gsz — накопление всех применимых сообщений."""
+    fixed_pairs = [pair for pair in matched_pairs if pair[1]]
+    key_pairs = [pair for pair in matched_pairs if not pair[1]]
+    lines: list[str] = []
+
+    if meta.fix_ids:
         if meta.fix_mode == "fallback":
-            return STATUS_FIX_NOT_FOUND
-        return STATUS_NONE
-    if meta.fix_mode == "resolved":
-        return STATUS_FIXED
-    if len(matched) == 1:
-        return STATUS_SINGLE
-    return STATUS_MULTIPLE
+            lines.append(texts.fix_not_found)
+        elif meta.fix_mode == "partial":
+            lines.append(texts.fix_partial)
+        elif meta.fix_mode == "resolved" and fixed_pairs:
+            lines.append(texts.fixed)
+
+    if len(key_pairs) > 1:
+        lines.append(texts.multiple)
+    elif len(key_pairs) == 1:
+        lines.append(texts.single)
+
+    if not lines and not matched_pairs:
+        return texts.fix_not_found if meta.fix_mode == "fallback" else texts.none
+
+    return join_status_lines(lines) or texts.none
 
 
-def format_match_columns(values: list[str], debug_sep: str = ";\n") -> tuple[str, str]:
+def compute_found_holding_primary(
+    fixed_entries: list[str],
+    key_entries: list[str],
+    texts: MatchStatusTexts,
+) -> str:
+    """Колонка «найденный холдинг»: значение, одно совпадение или «=>»."""
+    if fixed_entries:
+        if len(fixed_entries) == 1:
+            return fixed_entries[0]
+        return texts.multiple_placeholder
+    if len(key_entries) == 1:
+        return key_entries[0]
+    if len(key_entries) > 1:
+        return texts.multiple_placeholder
+    return texts.none
+
+
+def format_match_columns(
+    values: list[str],
+    texts: MatchStatusTexts | None = None,
+    debug_sep: str = ";\n",
+) -> tuple[str, str]:
     """Основная и отладочная колонки: фактические значения, без статусных фраз."""
+    empty = (texts.none if texts else DEFAULT_STATUS_NONE)
     if not values:
-        return STATUS_NONE, STATUS_NONE
+        return empty, empty
     primary = values[0]
     debug_text = debug_sep.join(values)
     return primary, debug_text
@@ -485,13 +590,18 @@ ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
 FULL_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
 NOT_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
 NO_ANCHOR_INDICES: tuple[int, ...] = ()
+MATCH_STATUS_TEXTS: MatchStatusTexts = DEFAULT_MATCH_STATUS_TEXTS
 LOG_FILE_PATH: Path | None = None
 
 
-def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
+def worker_init(
+    base_metas: tuple[BaseMeta, ...],
+    status_texts: MatchStatusTexts | None = None,
+) -> None:
     """Инициализация процесса: метаданные справочника + индексы якорных токенов и fix-ID."""
     global BASE_METAS
     global FIX_INDICES_BY_HOLDING_ID
+    global MATCH_STATUS_TEXTS
     global ANCHOR_NOT_INDEX
     global ANCHOR_FULL_INDEX
     global FULL_ANCHOR_WORDS_BY_CH
@@ -499,13 +609,15 @@ def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
     global NO_ANCHOR_INDICES
 
     BASE_METAS = base_metas
+    if status_texts is not None:
+        MATCH_STATUS_TEXTS = status_texts
     fix_index: dict[str, list[int]] = {}
     not_index: dict[str, list[int]] = {}
     full_index: dict[str, list[int]] = {}
     no_anchor: list[int] = []
 
     for idx, meta in enumerate(base_metas):
-        if meta.fix_mode == "resolved":
+        if meta.fix_mode in ("resolved", "partial"):
             for fid in meta.fix_ids:
                 fix_index.setdefault(fid, []).append(idx)
         a = meta.anchor
@@ -632,7 +744,8 @@ def _match_holding_to_base(
     """Общая логика сопоставления холдинга: fix-ID + поиск по ключам."""
     text = normalize_text(text_value)
     if not text:
-        return SingleHoldingMatchResult(STATUS_NONE, STATUS_NONE, STATUS_NONE, 0, (), ())
+        empty = MATCH_STATUS_TEXTS.none
+        return SingleHoldingMatchResult(empty, empty, empty, 0, (), ())
 
     compact_text = normalize_non_text(text)
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
@@ -668,7 +781,7 @@ def _match_holding_to_base(
         meta = BASE_METAS[idx]
         if meta.fix_mode == "resolved":
             continue
-        if meta.fix_mode == "fallback" or meta.fix_mode == "none":
+        if meta.fix_mode in ("fallback", "none", "partial"):
             if _meta_matches_with_cache(text, compact_text, meta, get_positions):
                 seen_indices.add(idx)
                 key_indices.append(idx)
@@ -677,8 +790,8 @@ def _match_holding_to_base(
 
     matched_indices = tuple(fixed_indices + key_indices)
     fixed_tuple = tuple(fixed_indices)
-    primary, debug = format_match_columns(matches)
-    status = compute_holding_status(len(matches), len(fixed_indices))
+    primary, debug = format_match_columns(matches, MATCH_STATUS_TEXTS)
+    status = compute_holding_status_lines(len(matches), len(fixed_indices), MATCH_STATUS_TEXTS)
     return SingleHoldingMatchResult(
         primary=primary,
         debug=debug,
@@ -694,7 +807,8 @@ def match_single_holding(holding_id: Any, text_value: Any) -> SingleHoldingMatch
     holding_id_norm = normalize_holding_id(holding_id)
     text = normalize_text(text_value)
     if not text:
-        return SingleHoldingMatchResult(STATUS_NONE, STATUS_NONE, STATUS_NONE, 0, (), ())
+        empty = MATCH_STATUS_TEXTS.none
+        return SingleHoldingMatchResult(empty, empty, empty, 0, (), ())
     return _match_holding_to_base(
         holding_id_norm,
         text_value,
@@ -707,7 +821,8 @@ def match_single_holding_brute(holding_id: Any, text_value: Any) -> SingleHoldin
     holding_id_norm = normalize_holding_id(holding_id)
     text = normalize_text(text_value)
     if not text:
-        return SingleHoldingMatchResult(STATUS_NONE, STATUS_NONE, STATUS_NONE, 0, (), ())
+        empty = MATCH_STATUS_TEXTS.none
+        return SingleHoldingMatchResult(empty, empty, empty, 0, (), ())
     return _match_holding_to_base(holding_id_norm, text_value, None)
 
 
@@ -1094,39 +1209,46 @@ def format_holding_entry(
 
 
 def build_base_holding_match_columns(
-    matched_holding_indices: list[int],
+    matched_pairs: list[tuple[int, bool]],
     hold_rows: list[dict[str, Any]],
     holding_id_column: str,
     holding_name_column: str,
+    texts: MatchStatusTexts,
 ) -> tuple[str, str]:
-    """Итоговые колонки «найденный холдинг» и «Отладка_найденного_холдинга»."""
-    entries: list[str] = []
-    for hold_idx in matched_holding_indices:
+    """Колонки «найденный холдинг» и отладка: fix-сначала, затем поиск по ключам."""
+    fixed_indices = [hold_idx for hold_idx, is_fixed in matched_pairs if is_fixed]
+    key_indices = [hold_idx for hold_idx, is_fixed in matched_pairs if not is_fixed]
+
+    def entries_for(indices: list[int]) -> list[str]:
+        result: list[str] = []
+        for hold_idx in indices:
+            if 0 <= hold_idx < len(hold_rows):
+                result.append(
+                    format_holding_entry(
+                        hold_rows[hold_idx],
+                        holding_id_column=holding_id_column,
+                        holding_name_column=holding_name_column,
+                        with_trailing_semicolon=False,
+                    )
+                )
+        return result
+
+    fixed_entries = entries_for(fixed_indices)
+    key_entries = entries_for(key_indices)
+    primary = compute_found_holding_primary(fixed_entries, key_entries, texts)
+
+    debug_lines: list[str] = []
+    for hold_idx in fixed_indices + key_indices:
         if 0 <= hold_idx < len(hold_rows):
-            entries.append(
+            debug_lines.append(
                 format_holding_entry(
                     hold_rows[hold_idx],
                     holding_id_column=holding_id_column,
                     holding_name_column=holding_name_column,
-                    with_trailing_semicolon=False,
+                    with_trailing_semicolon=True,
                 )
             )
-
-    if not entries:
-        return STATUS_NONE, STATUS_NONE
-
-    primary = entries[0]
-    debug_lines = [
-        format_holding_entry(
-            hold_rows[hold_idx],
-            holding_id_column=holding_id_column,
-            holding_name_column=holding_name_column,
-            with_trailing_semicolon=True,
-        )
-        for hold_idx in matched_holding_indices
-        if 0 <= hold_idx < len(hold_rows)
-    ]
-    debug_text = "\n".join(debug_lines)
+    debug_text = "\n".join(debug_lines) if debug_lines else texts.none
     return primary, debug_text
 
 
@@ -1148,6 +1270,7 @@ def enrich_base_rows(
     holding_id_column: str,
     holding_name_column: str,
     base_columns: tuple[OutputColumnSpec, ...],
+    status_texts: MatchStatusTexts | None = None,
 ) -> None:
     """Обратная проекция: для каждой строки _base_gsz заполняет служебные колонки.
 
@@ -1156,6 +1279,7 @@ def enrich_base_rows(
     - match_status — текстовый статус сопоставления;
     - key_string / key_length / key_repeat_count — аналитика по конкатенации ключей.
     """
+    texts = status_texts or MATCH_STATUS_TEXTS
     base_by_key = output_columns_by_key(base_columns)
     col_holding_count = base_by_key["holding_count"].name
     col_found_holding = base_by_key["found_holding"].name
@@ -1182,15 +1306,15 @@ def enrich_base_rows(
             if idx < len(per_row_matched_holding_indices)
             else []
         )
-        matched_indices = [hold_idx for hold_idx, _ in matched_pairs]
         found_primary, found_debug = build_base_holding_match_columns(
-            matched_holding_indices=matched_indices,
+            matched_pairs=matched_pairs,
             hold_rows=hold_rows,
             holding_id_column=holding_id_column,
             holding_name_column=holding_name_column,
+            texts=texts,
         )
         meta = base_metas[idx] if idx < len(base_metas) else BaseMeta("", False, (), (), (), (), None)
-        row_status = compute_base_row_status(meta, matched_pairs)
+        row_status = compute_base_row_status_lines(meta, matched_pairs, texts)
 
         row[col_holding_count] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
         row[col_found_holding] = found_primary
@@ -1415,6 +1539,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
         "or_non_cols": block.get("or_non_cols", DEFAULT_OR_NON),
         "fix_id_col": block.get("fix_id_col", DEFAULT_FIX_ID_COL),
+        "match_status_texts": load_match_status_texts(block),
         "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
         "work_batch_size": block.get("work_batch_size", 50),
         "log_stages": block.get("log_stages", True),
@@ -1509,6 +1634,9 @@ def main() -> None:
     args = parser.parse_args()
     settings = resolve_settings(args)
     config_dir = Path(str(settings["_config_dir"])).resolve()
+    global MATCH_STATUS_TEXTS
+    status_texts: MatchStatusTexts = settings["match_status_texts"]
+    MATCH_STATUS_TEXTS = status_texts
 
     if settings["log_to_file"]:
         logs_dir_value = str(settings["logs_dir"])
@@ -1677,7 +1805,7 @@ def main() -> None:
     with ProcessPoolExecutor(
         max_workers=workers,
         initializer=worker_init,
-        initargs=(metas,),
+        initargs=(metas, status_texts),
     ) as ex:
         future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
         ordered_batches: dict[
@@ -1771,6 +1899,7 @@ def main() -> None:
         holding_id_column=str(settings["holding_id_column"]),
         holding_name_column=str(settings["holding_column"]),
         base_columns=output_format["base_columns"],
+        status_texts=status_texts,
     )
 
     # --- Этап 5: запись Excel с форматированием из output_format ---

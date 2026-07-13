@@ -17,6 +17,7 @@ if str(SRC) not in sys.path:
 from gsz_matcher_parallel import (  # noqa: E402
     DEFAULT_BASE_OUTPUT_COLUMNS,
     DEFAULT_HOLDING_OUTPUT_COLUMNS,
+    DEFAULT_MATCH_STATUS_TEXTS,
     build_base_holding_match_columns,
     build_meta_row,
     enrich_base_rows,
@@ -161,10 +162,11 @@ class TestBaseHoldingColumns(unittest.TestCase):
             {"ID холдинга": 202, "Холдинг": "Самолет"},
         ]
         primary, debug = build_base_holding_match_columns(
-            matched_holding_indices=[0],
+            matched_pairs=[(0, False)],
             hold_rows=hold_rows,
             holding_id_column="ID холдинга",
             holding_name_column="Холдинг",
+            texts=DEFAULT_MATCH_STATUS_TEXTS,
         )
         self.assertEqual(primary, "[101]: ГК ПИК")
         self.assertEqual(debug, "[101]: ГК ПИК;")
@@ -175,12 +177,13 @@ class TestBaseHoldingColumns(unittest.TestCase):
             {"ID холдинга": 202, "Холдинг": "Самолет"},
         ]
         primary, debug = build_base_holding_match_columns(
-            matched_holding_indices=[0, 1],
+            matched_pairs=[(0, False), (1, False)],
             hold_rows=hold_rows,
             holding_id_column="ID холдинга",
             holding_name_column="Холдинг",
+            texts=DEFAULT_MATCH_STATUS_TEXTS,
         )
-        self.assertEqual(primary, "[101]: ГК ПИК")
+        self.assertEqual(primary, "=>")
         self.assertEqual(debug, "[101]: ГК ПИК;\n[202]: Самолет;")
 
     def test_enrich_base_rows_column_order(self) -> None:
@@ -212,6 +215,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
             holding_id_column="ID холдинга",
             holding_name_column="Холдинг",
             base_columns=base_columns,
+            status_texts=DEFAULT_MATCH_STATUS_TEXTS,
         )
         self.assertEqual(
             list(base_rows[0].keys())[-len(base_columns) :],

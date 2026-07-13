@@ -43,6 +43,15 @@
       "key_or_non_2"
     ],
     "fix_id_col": "key_fix_id",
+    "match_status_texts": {
+      "none": "-",
+      "single": "найдено соответствие",
+      "fixed": "зафиксированное значение",
+      "multiple": "есть пересечения по ключам",
+      "fix_not_found": "фикс значение не найдено",
+      "fix_partial": "найдена часть фиксированных значений",
+      "multiple_placeholder": "=>"
+    },
     "workers": 8,
     "work_batch_size": 30,
     "log_stages": true,
