@@ -35,10 +35,10 @@ from openpyxl.utils import get_column_letter
 
 DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
 DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
-DEFAULT_AND_NON = ["key_and_non_1", "key_and_non_2", "key_and_non_3"]
+DEFAULT_AND_NON = ["key_and_non_1", "key_and_non_2"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
-DEFAULT_OR_NON = ["key_or_non_1", "key_or_non_2", "key_or_non_3"]
+DEFAULT_OR_NON = ["key_or_non_1", "key_or_non_2"]
 DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
 DEFAULT_MIN_WIDTH_ALL = 30.0
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
