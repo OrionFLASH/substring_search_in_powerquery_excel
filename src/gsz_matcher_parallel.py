@@ -38,15 +38,34 @@ DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
 DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
-BASE_ENRICHMENT_COLUMNS = [
-    "кол-во холдингов",
-    "найденный холдинг",
-    "Отладка_найденного_холдинга",
-    "строка ключа",
-    "длина ключа",
-    "число повторов",
-]
+DEFAULT_MIN_WIDTH_ALL = 30.0
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
+
+
+@dataclass(frozen=True)
+class OutputColumnSpec:
+    """Описание добавляемой колонки на выходном листе."""
+
+    role: str
+    name: str
+    width: float
+    wrap: bool = False
+
+
+DEFAULT_HOLDING_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
+    OutputColumnSpec("gsz_primary", "условное ГСЗ", 150),
+    OutputColumnSpec("gsz_debug", "Отладка_совпадения_ГСЗ", 100, wrap=True),
+    OutputColumnSpec("match_count", "Кол-во совпадений", 30),
+)
+
+DEFAULT_BASE_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
+    OutputColumnSpec("holding_count", "кол-во холдингов", 30),
+    OutputColumnSpec("found_holding", "найденный холдинг", 150),
+    OutputColumnSpec("found_holding_debug", "Отладка_найденного_холдинга", 100, wrap=True),
+    OutputColumnSpec("key_string", "строка ключа", 30),
+    OutputColumnSpec("key_length", "длина ключа", 30),
+    OutputColumnSpec("key_repeat_count", "число повторов", 30),
+)
 
 
 def normalize_text(value: Any) -> str:
@@ -502,6 +521,147 @@ def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> N
         raise ValueError(f"В {where} отсутствуют колонки: {missing}")
 
 
+def output_columns_by_role(columns: tuple[OutputColumnSpec, ...]) -> dict[str, OutputColumnSpec]:
+    """Словарь role -> спецификация колонки."""
+    return {column.role: column for column in columns}
+
+
+def output_column_names(columns: tuple[OutputColumnSpec, ...]) -> list[str]:
+    """Имена добавляемых колонок в порядке конфигурации."""
+    return [column.name for column in columns]
+
+
+def _legacy_width_overrides(format_cfg: dict[str, Any]) -> dict[str, float]:
+    """Старые ключи ширины из output_format для обратной совместимости."""
+    overrides: dict[str, float] = {}
+    legacy_map = {
+        "gsz_primary": "holding_gsz_min_width",
+        "gsz_debug": "holding_debug_min_width",
+        "found_holding": "base_found_holding_min_width",
+        "found_holding_debug": "base_found_holding_debug_min_width",
+    }
+    for role, legacy_key in legacy_map.items():
+        if legacy_key in format_cfg:
+            overrides[role] = float(format_cfg[legacy_key])
+    return overrides
+
+
+def _legacy_wrap_overrides(format_cfg: dict[str, Any]) -> dict[str, bool]:
+    """Старые флаги переноса строк из output_format."""
+    overrides: dict[str, bool] = {}
+    if "holding_debug_wrap" in format_cfg:
+        overrides["gsz_debug"] = bool(format_cfg["holding_debug_wrap"])
+    if "base_found_holding_debug_wrap" in format_cfg:
+        overrides["found_holding_debug"] = bool(format_cfg["base_found_holding_debug_wrap"])
+    return overrides
+
+
+def parse_sheet_output_columns(
+    sheet_cfg: Any,
+    defaults: tuple[OutputColumnSpec, ...],
+    default_width: float,
+    legacy_widths: dict[str, float] | None = None,
+    legacy_wraps: dict[str, bool] | None = None,
+) -> tuple[OutputColumnSpec, ...]:
+    """Разбор списка колонок листа из config.json."""
+    legacy_widths = legacy_widths or {}
+    legacy_wraps = legacy_wraps or {}
+
+    if isinstance(sheet_cfg, dict):
+        raw_columns = sheet_cfg.get("columns", [])
+    elif isinstance(sheet_cfg, list):
+        raw_columns = sheet_cfg
+    else:
+        raw_columns = []
+
+    if not raw_columns:
+        return tuple(
+            OutputColumnSpec(
+                role=spec.role,
+                name=spec.name,
+                width=float(legacy_widths.get(spec.role, spec.width if spec.width > 0 else default_width)),
+                wrap=legacy_wraps.get(spec.role, spec.wrap),
+            )
+            for spec in defaults
+        )
+
+    parsed: list[OutputColumnSpec] = []
+    for idx, default_spec in enumerate(defaults):
+        if idx < len(raw_columns):
+            item = raw_columns[idx]
+            if isinstance(item, str):
+                name = item
+                width = default_width
+                wrap = default_spec.wrap
+            elif isinstance(item, dict):
+                name = str(item.get("name", default_spec.name))
+                width = float(item.get("width", default_width))
+                wrap = bool(item.get("wrap", default_spec.wrap))
+            else:
+                raise ValueError(
+                    f"Некорректный элемент columns[{idx}] в output_format: ожидается объект или строка"
+                )
+        else:
+            name = default_spec.name
+            width = float(legacy_widths.get(default_spec.role, default_spec.width if default_spec.width > 0 else default_width))
+            wrap = legacy_wraps.get(default_spec.role, default_spec.wrap)
+
+        parsed.append(OutputColumnSpec(default_spec.role, name, width, wrap))
+    return tuple(parsed)
+
+
+def resolve_output_format(format_cfg: dict[str, Any] | None) -> dict[str, Any]:
+    """Нормализация output_format: имена/ширины добавляемых колонок по листам."""
+    cfg = dict(format_cfg or {})
+    min_width_all = float(cfg.get("min_width_all", DEFAULT_MIN_WIDTH_ALL))
+    legacy_widths = _legacy_width_overrides(cfg)
+    legacy_wraps = _legacy_wrap_overrides(cfg)
+
+    holding_columns = parse_sheet_output_columns(
+        sheet_cfg=cfg.get("holding_sheet"),
+        defaults=DEFAULT_HOLDING_OUTPUT_COLUMNS,
+        default_width=min_width_all,
+        legacy_widths=legacy_widths,
+        legacy_wraps=legacy_wraps,
+    )
+    base_columns = parse_sheet_output_columns(
+        sheet_cfg=cfg.get("base_sheet"),
+        defaults=DEFAULT_BASE_OUTPUT_COLUMNS,
+        default_width=min_width_all,
+        legacy_widths=legacy_widths,
+        legacy_wraps=legacy_wraps,
+    )
+
+    cfg["min_width_all"] = min_width_all
+    cfg["holding_columns"] = holding_columns
+    cfg["base_columns"] = base_columns
+    return cfg
+
+
+def reorder_row_with_output_columns(
+    row: dict[str, Any],
+    output_columns: tuple[OutputColumnSpec, ...],
+) -> dict[str, Any]:
+    """Исходные колонки + добавляемые в порядке из конфигурации."""
+    output_names = set(output_column_names(output_columns))
+    original_keys = [key for key in row.keys() if key not in output_names]
+    ordered_keys = original_keys + [column.name for column in output_columns if column.name in row]
+    return {key: row[key] for key in ordered_keys}
+
+
+def apply_output_column_specs(
+    ws: Any,
+    output_columns: tuple[OutputColumnSpec, ...],
+    min_width_all: float,
+) -> None:
+    """Минимальная ширина для всех колонок и точечные настройки добавляемых."""
+    apply_min_column_widths(ws, min_width_all)
+    for column in output_columns:
+        apply_column_min_width_by_header(ws, column.name, column.width)
+        if column.wrap:
+            apply_wrap_for_column_by_header(ws, column.name)
+
+
 def write_sheet(ws: Any, rows: list[dict[str, Any]]) -> None:
     if not rows:
         return
@@ -662,11 +822,12 @@ def build_base_holding_match_columns(
     return primary, debug_text
 
 
-def reorder_base_row_columns(row: dict[str, Any]) -> dict[str, Any]:
-    """Служебные колонки _base_gsz — сразу после исходных, в фиксированном порядке."""
-    original_keys = [key for key in row.keys() if key not in BASE_ENRICHMENT_COLUMNS]
-    ordered_keys = original_keys + [key for key in BASE_ENRICHMENT_COLUMNS if key in row]
-    return {key: row[key] for key in ordered_keys}
+def reorder_base_row_columns(
+    row: dict[str, Any],
+    base_columns: tuple[OutputColumnSpec, ...],
+) -> dict[str, Any]:
+    """Служебные колонки _base_gsz — сразу после исходных, в порядке конфигурации."""
+    return reorder_row_with_output_columns(row, base_columns)
 
 
 def enrich_base_rows(
@@ -677,7 +838,16 @@ def enrich_base_rows(
     hold_rows: list[dict[str, Any]],
     holding_id_column: str,
     holding_name_column: str,
+    base_columns: tuple[OutputColumnSpec, ...],
 ) -> None:
+    base_by_role = output_columns_by_role(base_columns)
+    col_holding_count = base_by_role["holding_count"].name
+    col_found_holding = base_by_role["found_holding"].name
+    col_found_debug = base_by_role["found_holding_debug"].name
+    col_key_string = base_by_role["key_string"].name
+    col_key_length = base_by_role["key_length"].name
+    col_key_repeat = base_by_role["key_repeat_count"].name
+
     key_strings: list[str] = []
     for idx, row in enumerate(base_rows):
         parts: list[str] = []
@@ -701,11 +871,11 @@ def enrich_base_rows(
             holding_name_column=holding_name_column,
         )
 
-        row["кол-во холдингов"] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
-        row["найденный холдинг"] = found_primary
-        row["Отладка_найденного_холдинга"] = found_debug
-        row["строка ключа"] = key_str
-        row["длина ключа"] = len(key_str)
+        row[col_holding_count] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
+        row[col_found_holding] = found_primary
+        row[col_found_debug] = found_debug
+        row[col_key_string] = key_str
+        row[col_key_length] = len(key_str)
 
     freq: dict[str, int] = {}
     for ks in key_strings:
@@ -713,8 +883,8 @@ def enrich_base_rows(
             freq[ks] = freq.get(ks, 0) + 1
     for idx, row in enumerate(base_rows):
         ks = key_strings[idx]
-        row["число повторов"] = freq.get(ks, 0) if ks else 0
-        base_rows[idx] = reorder_base_row_columns(row)
+        row[col_key_repeat] = freq.get(ks, 0) if ks else 0
+        base_rows[idx] = reorder_base_row_columns(row, base_columns)
 
 
 def write_output_xlsx(
@@ -731,7 +901,11 @@ def write_output_xlsx(
     ws1 = wb.active
     ws1.title = holding_sheet[:31] if holding_sheet else "HOLD_OD"
     write_sheet(ws1, holding_rows)
-    format_cfg = format_cfg or {}
+    format_cfg = resolve_output_format(format_cfg)
+    holding_columns = format_cfg["holding_columns"]
+    base_columns = format_cfg["base_columns"]
+    min_width_all = float(format_cfg["min_width_all"])
+
     apply_sheet_formatting(
         ws=ws1,
         header_center=bool(format_cfg.get("header_center", True)),
@@ -741,11 +915,7 @@ def write_output_xlsx(
         freeze_cols=max(0, int(format_cfg.get("holding_freeze_cols", format_cfg.get("freeze_cols", 3)))),
         format_data_vertical_center=bool(format_cfg.get("format_data_vertical_center", True)),
     )
-    apply_min_column_widths(ws1, float(format_cfg.get("min_width_all", 100)))
-    apply_column_min_width_by_header(ws1, "Отладка_совпадения_ГСЗ", float(format_cfg.get("holding_debug_min_width", 250)))
-    apply_column_min_width_by_header(ws1, "условное ГСЗ", float(format_cfg.get("holding_gsz_min_width", 250)))
-    if bool(format_cfg.get("holding_debug_wrap", True)):
-        apply_wrap_for_column_by_header(ws1, "Отладка_совпадения_ГСЗ")
+    apply_output_column_specs(ws1, holding_columns, min_width_all)
 
     ws2 = wb.create_sheet(title=base_sheet[:31] if base_sheet else "base_gsz")
     write_sheet(ws2, base_rows)
@@ -758,19 +928,7 @@ def write_output_xlsx(
         freeze_cols=max(0, int(format_cfg.get("base_freeze_cols", 6))),
         format_data_vertical_center=bool(format_cfg.get("format_data_vertical_center", True)),
     )
-    apply_min_column_widths(ws2, float(format_cfg.get("min_width_all", 100)))
-    apply_column_min_width_by_header(
-        ws2,
-        "найденный холдинг",
-        float(format_cfg.get("base_found_holding_min_width", format_cfg.get("holding_gsz_min_width", 250))),
-    )
-    apply_column_min_width_by_header(
-        ws2,
-        "Отладка_найденного_холдинга",
-        float(format_cfg.get("base_found_holding_debug_min_width", format_cfg.get("holding_debug_min_width", 250))),
-    )
-    if bool(format_cfg.get("base_found_holding_debug_wrap", format_cfg.get("holding_debug_wrap", True))):
-        apply_wrap_for_column_by_header(ws2, "Отладка_найденного_холдинга")
+    apply_output_column_specs(ws2, base_columns, min_width_all)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
@@ -929,25 +1087,21 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "log_to_file": block.get("log_to_file", True),
         "logs_dir": block.get("logs_dir", "LOGS"),
         "log_file_prefix": block.get("log_file_prefix", "gsz_matcher_parallel"),
-        "output_format": block.get(
-            "output_format",
-            {
-                "header_center": True,
-                "header_wrap": True,
-                "header_bold": True,
-                "holding_freeze_rows": 1,
-                "holding_freeze_cols": 3,
-                "base_freeze_rows": 1,
-                "base_freeze_cols": 3,
-                "min_width_all": 100,
-                "holding_debug_min_width": 250,
-                "holding_gsz_min_width": 250,
-                "holding_debug_wrap": True,
-                "base_found_holding_min_width": 250,
-                "base_found_holding_debug_min_width": 250,
-                "base_found_holding_debug_wrap": True,
-                "format_data_vertical_center": True,
-            },
+        "output_format": resolve_output_format(
+            block.get(
+                "output_format",
+                {
+                    "header_center": True,
+                    "header_wrap": True,
+                    "header_bold": True,
+                    "holding_freeze_rows": 1,
+                    "holding_freeze_cols": 3,
+                    "base_freeze_rows": 1,
+                    "base_freeze_cols": 3,
+                    "min_width_all": DEFAULT_MIN_WIDTH_ALL,
+                    "format_data_vertical_center": True,
+                },
+            )
         ),
         "output_add_timestamp": block.get("output_add_timestamp", True),
         "output_timestamp_format": block.get("output_timestamp_format", "%Y%m%d_%H%M%S"),
@@ -1218,10 +1372,15 @@ def main() -> None:
                         next_progress += progress_every
                 next_idx_to_flush += 1
 
+    output_format = settings["output_format"]
+    holding_by_role = output_columns_by_role(output_format["holding_columns"])
     for row, res in zip(hold_rows, results):
-        row["условное ГСЗ"] = res[0]
-        row["Отладка_совпадения_ГСЗ"] = res[1]
-        row["Кол-во совпадений"] = res[2]
+        row[holding_by_role["gsz_primary"].name] = res[0]
+        row[holding_by_role["gsz_debug"].name] = res[1]
+        row[holding_by_role["match_count"].name] = res[2]
+
+    for idx, row in enumerate(hold_rows):
+        hold_rows[idx] = reorder_row_with_output_columns(row, output_format["holding_columns"])
 
     all_key_cols = and_full_cols + and_not_cols + or_full_cols + or_not_cols
     enrich_base_rows(
@@ -1232,6 +1391,7 @@ def main() -> None:
         hold_rows=hold_rows,
         holding_id_column=str(settings["holding_id_column"]),
         holding_name_column=str(settings["holding_column"]),
+        base_columns=output_format["base_columns"],
     )
 
     if settings["log_stages"]:
@@ -1242,7 +1402,7 @@ def main() -> None:
         base_rows=base_rows,
         holding_sheet=settings["holding_table"],
         base_sheet=settings["base_table"],
-        format_cfg=settings.get("output_format"),
+        format_cfg=output_format,
     )
 
     t1 = time.perf_counter()

@@ -15,18 +15,18 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from gsz_matcher_parallel import (  # noqa: E402
-    BASE_ENRICHMENT_COLUMNS,
-    DEFAULT_AND_FULL,
-    DEFAULT_AND_NOT,
-    DEFAULT_OR_FULL,
-    DEFAULT_OR_NOT,
+    DEFAULT_BASE_OUTPUT_COLUMNS,
+    DEFAULT_HOLDING_OUTPUT_COLUMNS,
     build_base_holding_match_columns,
     build_meta_row,
     enrich_base_rows,
     match_single_holding,
     match_single_holding_brute,
+    output_column_names,
+    parse_sheet_output_columns,
     read_excel_table,
     reorder_base_row_columns,
+    resolve_output_format,
     worker_init,
 )
 
@@ -43,6 +43,13 @@ class TestGszMatcherParity(unittest.TestCase):
         cls.base_table = block["base_table"]
         cls.holding_column = block["holding_column"]
         cls.gsz_column = block["gsz_column"]
+        from gsz_matcher_parallel import (  # noqa: E402
+            DEFAULT_AND_FULL,
+            DEFAULT_AND_NOT,
+            DEFAULT_OR_FULL,
+            DEFAULT_OR_NOT,
+        )
+
         cls.and_full_cols = block.get("and_full_cols", DEFAULT_AND_FULL)
         cls.and_not_cols = block.get("and_not_cols", DEFAULT_AND_NOT)
         cls.or_full_cols = block.get("or_full_cols", DEFAULT_OR_FULL)
@@ -115,6 +122,11 @@ class TestBaseHoldingColumns(unittest.TestCase):
     def test_enrich_base_rows_column_order(self) -> None:
         base_rows = [{"Наименование, регион": "ПИК, Москва", "key_and_full_1": "пик"}]
         hold_rows = [{"ID холдинга": 7, "Холдинг": "ГК ПИК"}]
+        base_columns = parse_sheet_output_columns(
+            sheet_cfg=None,
+            defaults=DEFAULT_BASE_OUTPUT_COLUMNS,
+            default_width=30,
+        )
         enrich_base_rows(
             base_rows=base_rows,
             all_key_cols=["key_and_full_1"],
@@ -123,12 +135,17 @@ class TestBaseHoldingColumns(unittest.TestCase):
             hold_rows=hold_rows,
             holding_id_column="ID холдинга",
             holding_name_column="Холдинг",
+            base_columns=base_columns,
         )
-        self.assertEqual(list(base_rows[0].keys())[-len(BASE_ENRICHMENT_COLUMNS) :], BASE_ENRICHMENT_COLUMNS)
+        self.assertEqual(
+            list(base_rows[0].keys())[-len(base_columns) :],
+            output_column_names(base_columns),
+        )
         self.assertEqual(base_rows[0]["найденный холдинг"], "[7]: ГК ПИК")
         self.assertEqual(base_rows[0]["Отладка_найденного_холдинга"], "[7]: ГК ПИК;")
 
     def test_reorder_base_row_columns(self) -> None:
+        base_columns = DEFAULT_BASE_OUTPUT_COLUMNS
         row = {
             "Наименование, регион": "X",
             "число повторов": 1,
@@ -138,11 +155,39 @@ class TestBaseHoldingColumns(unittest.TestCase):
             "строка ключа": "k",
             "длина ключа": 1,
         }
-        ordered = reorder_base_row_columns(row)
+        ordered = reorder_base_row_columns(row, base_columns)
         self.assertEqual(
             list(ordered.keys()),
-            ["Наименование, регион", *BASE_ENRICHMENT_COLUMNS],
+            ["Наименование, регион", *output_column_names(base_columns)],
         )
+
+    def test_resolve_output_format_custom_names(self) -> None:
+        resolved = resolve_output_format(
+            {
+                "min_width_all": 40,
+                "holding_sheet": {
+                    "columns": [
+                        {"name": "ГСЗ", "width": 120},
+                        {"name": "Отладка ГСЗ", "width": 80, "wrap": False},
+                        {"name": "Совпадений", "width": 25},
+                    ]
+                },
+                "base_sheet": {
+                    "columns": [
+                        {"name": "Холдингов", "width": 35},
+                        {"name": "Холдинг", "width": 140},
+                        {"name": "Отладка холдинга", "width": 90, "wrap": True},
+                        {"name": "Ключ", "width": 35},
+                        {"name": "Длина", "width": 35},
+                        {"name": "Повторы", "width": 35},
+                    ]
+                },
+            }
+        )
+        self.assertEqual(resolved["holding_columns"][0].name, "ГСЗ")
+        self.assertEqual(resolved["holding_columns"][0].width, 120)
+        self.assertEqual(resolved["base_columns"][2].wrap, True)
+        self.assertEqual(resolved["min_width_all"], 40)
 
 
 if __name__ == "__main__":
