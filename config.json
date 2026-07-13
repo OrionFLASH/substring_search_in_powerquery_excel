@@ -42,6 +42,7 @@
       "key_or_non_1",
       "key_or_non_2"
     ],
+    "fix_id_col": "key_fix_id",
     "workers": 8,
     "work_batch_size": 30,
     "log_stages": true,
@@ -69,6 +70,7 @@
         "columns": {
           "gsz_primary": {"name": "Бренд", "width": 100},
           "gsz_debug": {"name": "Отладка_совпадения_Бренд", "width": 150, "wrap": true},
+          "match_status": {"name": "статус", "width": 40},
           "match_count": {"name": "Кол-во совпадений", "width": 30}
         }
       },
@@ -77,6 +79,7 @@
           "holding_count": {"name": "кол-во холдингов", "width": 30},
           "found_holding": {"name": "найденный холдинг", "width": 100},
           "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 150, "wrap": true},
+          "match_status": {"name": "статус", "width": 40},
           "key_string": {"name": "строка ключа", "width": 30},
           "key_length": {"name": "длина ключа", "width": 30},
           "key_repeat_count": {"name": "число повторов", "width": 30}

@@ -52,9 +52,17 @@ DEFAULT_AND_NON = ["key_and_non_1", "key_and_non_2"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
 DEFAULT_OR_NON = ["key_or_non_1", "key_or_non_2"]
+DEFAULT_FIX_ID_COL = "key_fix_id"
 DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
 DEFAULT_MIN_WIDTH_ALL = 30.0
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
+
+# Тексты колонки «статус» (имена колонок задаются в output_format).
+STATUS_FIXED = "зафиксированное значение"
+STATUS_SINGLE = "найдено соответствие"
+STATUS_MULTIPLE = "есть пересечения по ключам"
+STATUS_FIX_NOT_FOUND = "фикс значение не найдено"
+STATUS_NONE = "-"
 
 
 @dataclass(frozen=True)
@@ -70,6 +78,7 @@ class OutputColumnSpec:
 DEFAULT_HOLDING_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
     OutputColumnSpec("gsz_primary", "условное ГСЗ", 150),
     OutputColumnSpec("gsz_debug", "Отладка_совпадения_ГСЗ", 100, wrap=True),
+    OutputColumnSpec("match_status", "статус", 40),
     OutputColumnSpec("match_count", "Кол-во совпадений", 30),
 )
 
@@ -77,6 +86,7 @@ DEFAULT_BASE_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
     OutputColumnSpec("holding_count", "кол-во холдингов", 30),
     OutputColumnSpec("found_holding", "найденный холдинг", 150),
     OutputColumnSpec("found_holding_debug", "Отладка_найденного_холдинга", 100, wrap=True),
+    OutputColumnSpec("match_status", "статус", 40),
     OutputColumnSpec("key_string", "строка ключа", 30),
     OutputColumnSpec("key_length", "длина ключа", 30),
     OutputColumnSpec("key_repeat_count", "число повторов", 30),
@@ -174,6 +184,80 @@ class BaseMeta:
     and_non_tokens: tuple[str, ...]  # исключение AND: все найдены → строка отклоняется
     or_non_tokens: tuple[str, ...]   # исключение OR: любой найден → строка отклоняется
     anchor: Token | None
+    fix_ids: tuple[str, ...] = ()  # ID холдингов из key_fix_id
+    fix_mode: str = "none"  # none | resolved | fallback
+
+
+@dataclass(frozen=True)
+class SingleHoldingMatchResult:
+    """Результат сопоставления одного холдинга со справочником."""
+
+    primary: str
+    debug: str
+    status: str
+    count: int
+    matched_indices: tuple[int, ...]
+    fixed_indices: tuple[int, ...]
+
+
+def normalize_holding_id(value: Any) -> str:
+    """Нормализация ID холдинга для сравнения (trim, строка)."""
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def parse_fix_ids(value: Any) -> tuple[str, ...]:
+    """Разбор key_fix_id: один ID или несколько через «; » / «;»."""
+    if value is None:
+        return ()
+    text = str(value).strip()
+    if not text:
+        return ()
+    parts = re.split(r";\s*", text)
+    return tuple(p.strip() for p in parts if p.strip())
+
+
+def resolve_fix_mode(fix_ids: tuple[str, ...], holdings_id_set: frozenset[str]) -> str:
+    """Режим fix: none — пусто; resolved — хотя бы один ID найден; fallback — ID не найдены."""
+    if not fix_ids:
+        return "none"
+    if any(fid in holdings_id_set for fid in fix_ids):
+        return "resolved"
+    return "fallback"
+
+
+def compute_holding_status(match_count: int, fixed_count: int) -> str:
+    """Статус для листа холдингов по числу совпадений и fix-совпадений."""
+    if match_count == 0:
+        return STATUS_NONE
+    if fixed_count == match_count:
+        return STATUS_FIXED
+    if match_count == 1:
+        return STATUS_SINGLE
+    return STATUS_MULTIPLE
+
+
+def compute_base_row_status(meta: BaseMeta, matched: list[tuple[int, bool]]) -> str:
+    """Статус для строки _base_gsz по режиму fix и списку сматченных холдингов."""
+    if not matched:
+        if meta.fix_mode == "fallback":
+            return STATUS_FIX_NOT_FOUND
+        return STATUS_NONE
+    if meta.fix_mode == "resolved":
+        return STATUS_FIXED
+    if len(matched) == 1:
+        return STATUS_SINGLE
+    return STATUS_MULTIPLE
+
+
+def format_match_columns(values: list[str], debug_sep: str = ";\n") -> tuple[str, str]:
+    """Основная и отладочная колонки: фактические значения, без статусных фраз."""
+    if not values:
+        return STATUS_NONE, STATUS_NONE
+    primary = values[0]
+    debug_text = debug_sep.join(values)
+    return primary, debug_text
 
 
 def parse_cols(value: str) -> list[str]:
@@ -218,14 +302,19 @@ def build_meta_row(
     or_full_cols: list[str],
     or_not_cols: list[str],
     or_non_cols: list[str],
+    fix_id_col: str = DEFAULT_FIX_ID_COL,
+    holdings_id_set: frozenset[str] | None = None,
 ) -> BaseMeta:
-    """Сборка метаданных одной строки справочника из шести групп колонок ключей."""
+    """Сборка метаданных одной строки справочника из шести групп ключей и key_fix_id."""
     and_full_raw = [normalize_text(row.get(c, "")) for c in and_full_cols]
     and_not_raw = [normalize_text(row.get(c, "")) for c in and_not_cols]
     and_non_raw = [normalize_non_text(row.get(c, "")) for c in and_non_cols]
     or_full_raw = [normalize_text(row.get(c, "")) for c in or_full_cols]
     or_not_raw = [normalize_text(row.get(c, "")) for c in or_not_cols]
     or_non_raw = [normalize_non_text(row.get(c, "")) for c in or_non_cols]
+    fix_ids = parse_fix_ids(row.get(fix_id_col, ""))
+    holdings_ids = holdings_id_set if holdings_id_set is not None else frozenset()
+    fix_mode = resolve_fix_mode(fix_ids, holdings_ids)
 
     and_tokens = [Token(w, True) for w in and_full_raw if w] + [Token(w, False) for w in and_not_raw if w]
     or_tokens = [Token(w, True) for w in or_full_raw if w] + [Token(w, False) for w in or_not_raw if w]
@@ -243,6 +332,8 @@ def build_meta_row(
         and_non_tokens=and_non_tokens,
         or_non_tokens=or_non_tokens,
         anchor=anchor,
+        fix_ids=fix_ids,
+        fix_mode=fix_mode,
     )
 
 
@@ -388,6 +479,7 @@ def inspect_workbook_objects(path: Path) -> dict[str, Any]:
 # Глобальное состояние воркеров (инициализируется один раз на процесс)
 # =============================================================================
 BASE_METAS: tuple[BaseMeta, ...] = ()
+FIX_INDICES_BY_HOLDING_ID: dict[str, tuple[int, ...]] = {}
 ANCHOR_NOT_INDEX: dict[str, tuple[int, ...]] = {}
 ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
 FULL_ANCHOR_WORDS_BY_CH: dict[str, tuple[str, ...]] = {}
@@ -397,8 +489,9 @@ LOG_FILE_PATH: Path | None = None
 
 
 def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
-    """Инициализация процесса: метаданные справочника + индексы якорных токенов."""
+    """Инициализация процесса: метаданные справочника + индексы якорных токенов и fix-ID."""
     global BASE_METAS
+    global FIX_INDICES_BY_HOLDING_ID
     global ANCHOR_NOT_INDEX
     global ANCHOR_FULL_INDEX
     global FULL_ANCHOR_WORDS_BY_CH
@@ -406,11 +499,15 @@ def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
     global NO_ANCHOR_INDICES
 
     BASE_METAS = base_metas
+    fix_index: dict[str, list[int]] = {}
     not_index: dict[str, list[int]] = {}
     full_index: dict[str, list[int]] = {}
     no_anchor: list[int] = []
 
     for idx, meta in enumerate(base_metas):
+        if meta.fix_mode == "resolved":
+            for fid in meta.fix_ids:
+                fix_index.setdefault(fid, []).append(idx)
         a = meta.anchor
         if a is None:
             no_anchor.append(idx)
@@ -419,6 +516,8 @@ def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
             full_index.setdefault(a.word, []).append(idx)
         else:
             not_index.setdefault(a.word, []).append(idx)
+
+    FIX_INDICES_BY_HOLDING_ID = {k: tuple(v) for k, v in fix_index.items()}
 
     ANCHOR_NOT_INDEX = {k: tuple(v) for k, v in not_index.items()}
     ANCHOR_FULL_INDEX = {k: tuple(v) for k, v in full_index.items()}
@@ -473,16 +572,69 @@ def candidate_indices_for_text(text: str) -> list[int]:
 # =============================================================================
 # Сопоставление одного холдинга со справочником
 # =============================================================================
-def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...]]:
-    """Быстрый поиск: якорный предфильтр + полная проверка кандидатов.
+def _meta_matches_with_cache(
+    text: str,
+    compact_text: str,
+    meta: BaseMeta,
+    get_positions: Any,
+) -> bool:
+    """Проверка строки справочника по ключам с кэшем позиций (для match_single_holding)."""
+    if not text or not meta.has_keys:
+        return False
 
-    Возвращает: (основной ГСЗ, отладка, кол-во совпадений, индексы строк справочника).
-    """
+    if meta.and_tokens:
+        position_lists: list[list[tuple[int, int]]] = []
+        for t in meta.and_tokens:
+            pos = get_positions(t.word, t.is_full)
+            if not pos:
+                return False
+            position_lists.append(pos)
+        if not and_non_overlapping(position_lists):
+            return False
+
+    if meta.or_tokens:
+        ok_or = False
+        for t in meta.or_tokens:
+            if get_positions(t.word, t.is_full):
+                ok_or = True
+                break
+        if not ok_or:
+            return False
+
+    if meta.and_non_tokens:
+        non_and_positions: list[list[tuple[int, int]]] = []
+        for token in meta.and_non_tokens:
+            pos = (
+                get_positions(token, True)
+                if compact_text == text
+                else all_positions_full(compact_text, token)
+            )
+            if not pos:
+                non_and_positions = []
+                break
+            non_and_positions.append(pos)
+        if non_and_positions and and_non_overlapping(non_and_positions):
+            return False
+
+    if meta.or_non_tokens:
+        for token in meta.or_non_tokens:
+            if get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token):
+                return False
+
+    return True
+
+
+def _match_holding_to_base(
+    holding_id: str,
+    text_value: Any,
+    candidate_indices: list[int] | None,
+) -> SingleHoldingMatchResult:
+    """Общая логика сопоставления холдинга: fix-ID + поиск по ключам."""
     text = normalize_text(text_value)
     if not text:
-        return "-", "-", 0, ()
-    compact_text = normalize_non_text(text)
+        return SingleHoldingMatchResult(STATUS_NONE, STATUS_NONE, STATUS_NONE, 0, (), ())
 
+    compact_text = normalize_non_text(text)
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
 
     def get_positions(word: str, is_full: bool) -> list[tuple[int, int]]:
@@ -494,155 +646,69 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
         pos_cache[key] = out
         return out
 
+    fixed_indices: list[int] = []
+    key_indices: list[int] = []
     matches: list[str] = []
-    matched_row_indices: list[int] = []
-    for idx in candidate_indices_for_text(text):
+    seen_indices: set[int] = set()
+
+    for idx in FIX_INDICES_BY_HOLDING_ID.get(holding_id, ()):
+        if idx in seen_indices:
+            continue
         meta = BASE_METAS[idx]
-        if not meta.has_keys:
+        if holding_id in meta.fix_ids:
+            seen_indices.add(idx)
+            fixed_indices.append(idx)
+            if meta.gsz_value:
+                matches.append(meta.gsz_value)
+
+    indices = candidate_indices if candidate_indices is not None else list(range(len(BASE_METAS)))
+    for idx in indices:
+        if idx in seen_indices:
             continue
-
-        ok_and = True
-        if meta.and_tokens:
-            position_lists: list[list[tuple[int, int]]] = []
-            for t in meta.and_tokens:
-                pos = get_positions(t.word, t.is_full)
-                if not pos:
-                    ok_and = False
-                    break
-                position_lists.append(pos)
-            if ok_and and not and_non_overlapping(position_lists):
-                ok_and = False
-        if not ok_and:
+        meta = BASE_METAS[idx]
+        if meta.fix_mode == "resolved":
             continue
+        if meta.fix_mode == "fallback" or meta.fix_mode == "none":
+            if _meta_matches_with_cache(text, compact_text, meta, get_positions):
+                seen_indices.add(idx)
+                key_indices.append(idx)
+                if meta.gsz_value:
+                    matches.append(meta.gsz_value)
 
-        ok_or = True
-        if meta.or_tokens:
-            ok_or = False
-            for t in meta.or_tokens:
-                if get_positions(t.word, t.is_full):
-                    ok_or = True
-                    break
-        if not ok_or:
-            continue
-
-        # --- Фильтр non-исключений (логика как в row_matches) ---
-        non_rejected = False
-        if meta.and_non_tokens:
-            non_and_positions: list[list[tuple[int, int]]] = []
-            for token in meta.and_non_tokens:
-                pos = get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)
-                if not pos:
-                    non_and_positions = []
-                    break
-                non_and_positions.append(pos)
-            if non_and_positions and and_non_overlapping(non_and_positions):
-                non_rejected = True
-
-        if not non_rejected and meta.or_non_tokens:
-            for token in meta.or_non_tokens:
-                if (get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)):
-                    non_rejected = True
-                    break
-
-        if non_rejected:
-            continue
-
-        # Полное совпадение найдено — запоминаем индекс строки справочника и имя ГСЗ.
-        matched_row_indices.append(idx)
-        if meta.gsz_value:
-            matches.append(meta.gsz_value)
-
-    if not matches:
-        return "-", "-", 0, tuple(matched_row_indices)
-
-    # Формирование выходных колонок листа холдингов (как в Power Query).
-    count = len(matches)
-    debug_text = ";\n".join(matches)
-    primary = "есть пересечения по ключам" if count > 1 else matches[0]
-    return primary, debug_text, count, tuple(matched_row_indices)
+    matched_indices = tuple(fixed_indices + key_indices)
+    fixed_tuple = tuple(fixed_indices)
+    primary, debug = format_match_columns(matches)
+    status = compute_holding_status(len(matches), len(fixed_indices))
+    return SingleHoldingMatchResult(
+        primary=primary,
+        debug=debug,
+        status=status,
+        count=len(matches),
+        matched_indices=matched_indices,
+        fixed_indices=fixed_tuple,
+    )
 
 
-def match_single_holding_brute(text_value: Any) -> tuple[str, str, int, tuple[int, ...]]:
-    """Полный перебор справочника без якорного предфильтра (для регресс-тестов)."""
+def match_single_holding(holding_id: Any, text_value: Any) -> SingleHoldingMatchResult:
+    """Быстрый поиск: fix-ID + якорный предфильтр + полная проверка кандидатов."""
+    holding_id_norm = normalize_holding_id(holding_id)
     text = normalize_text(text_value)
     if not text:
-        return "-", "-", 0, ()
-    compact_text = normalize_non_text(text)
+        return SingleHoldingMatchResult(STATUS_NONE, STATUS_NONE, STATUS_NONE, 0, (), ())
+    return _match_holding_to_base(
+        holding_id_norm,
+        text_value,
+        candidate_indices_for_text(text),
+    )
 
-    pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
 
-    def get_positions(word: str, is_full: bool) -> list[tuple[int, int]]:
-        key = (word, is_full)
-        cached = pos_cache.get(key)
-        if cached is not None:
-            return cached
-        out = all_positions_full(text, word) if is_full else positions_not(text, word)
-        pos_cache[key] = out
-        return out
-
-    matches: list[str] = []
-    matched_row_indices: list[int] = []
-    for idx, meta in enumerate(BASE_METAS):
-        if not meta.has_keys:
-            continue
-
-        ok_and = True
-        if meta.and_tokens:
-            position_lists: list[list[tuple[int, int]]] = []
-            for t in meta.and_tokens:
-                pos = get_positions(t.word, t.is_full)
-                if not pos:
-                    ok_and = False
-                    break
-                position_lists.append(pos)
-            if ok_and and not and_non_overlapping(position_lists):
-                ok_and = False
-        if not ok_and:
-            continue
-
-        ok_or = True
-        if meta.or_tokens:
-            ok_or = False
-            for t in meta.or_tokens:
-                if get_positions(t.word, t.is_full):
-                    ok_or = True
-                    break
-        if not ok_or:
-            continue
-
-        # --- Фильтр non-исключений (логика как в row_matches) ---
-        non_rejected = False
-        if meta.and_non_tokens:
-            non_and_positions: list[list[tuple[int, int]]] = []
-            for token in meta.and_non_tokens:
-                pos = get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)
-                if not pos:
-                    non_and_positions = []
-                    break
-                non_and_positions.append(pos)
-            if non_and_positions and and_non_overlapping(non_and_positions):
-                non_rejected = True
-
-        if not non_rejected and meta.or_non_tokens:
-            for token in meta.or_non_tokens:
-                if (get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)):
-                    non_rejected = True
-                    break
-
-        if non_rejected:
-            continue
-
-        matched_row_indices.append(idx)
-        if meta.gsz_value:
-            matches.append(meta.gsz_value)
-
-    if not matches:
-        return "-", "-", 0, tuple(matched_row_indices)
-
-    count = len(matches)
-    debug_text = ";\n".join(matches)
-    primary = "есть пересечения по ключам" if count > 1 else matches[0]
-    return primary, debug_text, count, tuple(matched_row_indices)
+def match_single_holding_brute(holding_id: Any, text_value: Any) -> SingleHoldingMatchResult:
+    """Полный перебор справочника без якорного предфильтра (для регресс-тестов)."""
+    holding_id_norm = normalize_holding_id(holding_id)
+    text = normalize_text(text_value)
+    if not text:
+        return SingleHoldingMatchResult(STATUS_NONE, STATUS_NONE, STATUS_NONE, 0, (), ())
+    return _match_holding_to_base(holding_id_norm, text_value, None)
 
 
 def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> None:
@@ -1047,9 +1113,9 @@ def build_base_holding_match_columns(
             )
 
     if not entries:
-        return "-", "-"
+        return STATUS_NONE, STATUS_NONE
 
-    count = len(entries)
+    primary = entries[0]
     debug_lines = [
         format_holding_entry(
             hold_rows[hold_idx],
@@ -1061,7 +1127,6 @@ def build_base_holding_match_columns(
         if 0 <= hold_idx < len(hold_rows)
     ]
     debug_text = "\n".join(debug_lines)
-    primary = "есть пересечения по ключам" if count > 1 else entries[0]
     return primary, debug_text
 
 
@@ -1075,9 +1140,10 @@ def reorder_base_row_columns(
 
 def enrich_base_rows(
     base_rows: list[dict[str, Any]],
+    base_metas: list[BaseMeta],
     all_key_cols: list[str],
     per_row_holding_counts: list[int],
-    per_row_matched_holding_indices: list[list[int]],
+    per_row_matched_holding_indices: list[list[tuple[int, bool]]],
     hold_rows: list[dict[str, Any]],
     holding_id_column: str,
     holding_name_column: str,
@@ -1087,12 +1153,14 @@ def enrich_base_rows(
 
     - holding_count — сколько холдингов сматчилось на эту строку;
     - found_holding / found_holding_debug — список холдингов в формате [ID]: имя;
+    - match_status — текстовый статус сопоставления;
     - key_string / key_length / key_repeat_count — аналитика по конкатенации ключей.
     """
     base_by_key = output_columns_by_key(base_columns)
     col_holding_count = base_by_key["holding_count"].name
     col_found_holding = base_by_key["found_holding"].name
     col_found_debug = base_by_key["found_holding_debug"].name
+    col_status = base_by_key["match_status"].name
     col_key_string = base_by_key["key_string"].name
     col_key_length = base_by_key["key_length"].name
     col_key_repeat = base_by_key["key_repeat_count"].name
@@ -1109,21 +1177,25 @@ def enrich_base_rows(
         key_str = "_".join(parts)
         key_strings.append(key_str)
 
-        matched_indices = (
+        matched_pairs = (
             per_row_matched_holding_indices[idx]
             if idx < len(per_row_matched_holding_indices)
             else []
         )
+        matched_indices = [hold_idx for hold_idx, _ in matched_pairs]
         found_primary, found_debug = build_base_holding_match_columns(
             matched_holding_indices=matched_indices,
             hold_rows=hold_rows,
             holding_id_column=holding_id_column,
             holding_name_column=holding_name_column,
         )
+        meta = base_metas[idx] if idx < len(base_metas) else BaseMeta("", False, (), (), (), (), None)
+        row_status = compute_base_row_status(meta, matched_pairs)
 
         row[col_holding_count] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
         row[col_found_holding] = found_primary
         row[col_found_debug] = found_debug
+        row[col_status] = row_status
         row[col_key_string] = key_str
         row[col_key_length] = len(key_str)
 
@@ -1198,20 +1270,22 @@ def chunked(seq: list[Any], size: int) -> list[list[Any]]:
 
 
 def match_holding_batch(
-    indexed_text_batch: list[tuple[int, Any]],
-) -> tuple[list[tuple[str, str, int]], dict[int, list[int]]]:
+    indexed_holding_batch: list[tuple[int, Any, Any]],
+) -> tuple[list[tuple[str, str, str, int]], dict[int, list[tuple[int, bool]]]]:
     """Обработка батча холдингов в одном воркере.
 
     Возвращает результаты по холдингам и обратную проекцию:
-    base_idx → список индексов холдингов, сматчившихся на эту строку справочника.
+    base_idx → список (индекс холдинга, совпадение по fix-ID).
     """
-    rows_out: list[tuple[str, str, int]] = []
-    row_holding_indices: dict[int, list[int]] = {}
-    for hold_idx, value in indexed_text_batch:
-        primary, debug_text, match_count, matched_indices = match_single_holding(value)
-        rows_out.append((primary, debug_text, match_count))
-        for base_idx in matched_indices:
-            row_holding_indices.setdefault(base_idx, []).append(hold_idx)
+    rows_out: list[tuple[str, str, str, int]] = []
+    row_holding_indices: dict[int, list[tuple[int, bool]]] = {}
+    for hold_idx, holding_id, value in indexed_holding_batch:
+        result = match_single_holding(holding_id, value)
+        rows_out.append((result.primary, result.debug, result.status, result.count))
+        fixed_set = set(result.fixed_indices)
+        for base_idx in result.matched_indices:
+            is_fixed = base_idx in fixed_set
+            row_holding_indices.setdefault(base_idx, []).append((hold_idx, is_fixed))
     return rows_out, row_holding_indices
 
 
@@ -1340,6 +1414,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "or_full_cols": block.get("or_full_cols", DEFAULT_OR_FULL),
         "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
         "or_non_cols": block.get("or_non_cols", DEFAULT_OR_NON),
+        "fix_id_col": block.get("fix_id_col", DEFAULT_FIX_ID_COL),
         "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
         "work_batch_size": block.get("work_batch_size", 50),
         "log_stages": block.get("log_stages", True),
@@ -1531,7 +1606,13 @@ def main() -> None:
         f"таблице {settings['base_table']}",
     )
 
-    # --- Этап 2: предобработка справочника (токены, якорь, non) один раз ---
+    # --- Этап 2: предобработка справочника (токены, якорь, non, fix-ID) один раз ---
+    holdings_id_set = frozenset(
+        normalize_holding_id(r.get(settings["holding_id_column"]))
+        for r in hold_rows
+        if normalize_holding_id(r.get(settings["holding_id_column"]))
+    )
+    fix_id_col = str(settings.get("fix_id_col", DEFAULT_FIX_ID_COL))
     if settings["log_stages"]:
         log("[stage] Подготовка метаданных справочника...")
     metas_list: list[BaseMeta] = []
@@ -1547,13 +1628,15 @@ def main() -> None:
                 or_full_cols=or_full_cols,
                 or_not_cols=or_not_cols,
                 or_non_cols=or_non_cols,
+                fix_id_col=fix_id_col,
+                holdings_id_set=holdings_id_set,
             )
         )
         if settings["log_stages"] and (idx % base_progress_every == 0 or idx == len(base_rows)):
             log(f"[progress-base] {idx}/{len(base_rows)}")
     metas = tuple(metas_list)
     base_holding_counts = [0] * len(base_rows)
-    base_matched_holding_indices: list[list[int]] = [[] for _ in base_rows]
+    base_matched_holding_indices: list[list[tuple[int, bool]]] = [[] for _ in base_rows]
 
     total_holdings = len(hold_rows)
     total_base = len(base_rows)
@@ -1566,13 +1649,18 @@ def main() -> None:
         )
 
     holding_texts = [r.get(settings["holding_column"]) for r in hold_rows]
+    holding_ids = [
+        normalize_holding_id(r.get(settings["holding_id_column"])) for r in hold_rows
+    ]
     work_batch_size = max(1, int(settings["work_batch_size"]))
     progress_every = max(1, int(settings["progress_every_holdings"]))
     progress_every_batches = max(1, int(settings["progress_every_batches"]))
     workers = max(1, int(settings["workers"]))
     heartbeat_seconds = max(1, int(settings["heartbeat_seconds"]))
-    indexed_holding_texts = list(enumerate(holding_texts))
-    batches = chunked(indexed_holding_texts, work_batch_size)
+    indexed_holding_batch = [
+        (idx, holding_ids[idx], holding_texts[idx]) for idx in range(len(hold_rows))
+    ]
+    batches = chunked(indexed_holding_batch, work_batch_size)
 
     # --- Этап 3: параллельное сопоставление холдингов батчами ---
     if settings["log_stages"]:
@@ -1582,7 +1670,7 @@ def main() -> None:
             f"progress_every_batches={progress_every_batches}"
         )
 
-    results: list[tuple[str, str, int]] = []
+    results: list[tuple[str, str, str, int]] = []
     processed = 0
     next_progress = progress_every
     match_started = time.perf_counter()
@@ -1592,7 +1680,10 @@ def main() -> None:
         initargs=(metas,),
     ) as ex:
         future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
-        ordered_batches: dict[int, tuple[list[tuple[str, str, int]], dict[int, list[int]]]] = {}
+        ordered_batches: dict[
+            int,
+            tuple[list[tuple[str, str, str, int]], dict[int, list[tuple[int, bool]]]],
+        ] = {}
         next_idx_to_flush = 0
         completed_batches = 0
         next_batch_progress = progress_every_batches
@@ -1635,10 +1726,10 @@ def main() -> None:
                 batch_result, batch_holding_indices = ordered_batches.pop(next_idx_to_flush)
                 results.extend(batch_result)
                 processed += len(batch_result)
-                for row_idx, hold_indices in batch_holding_indices.items():
+                for row_idx, hold_pairs in batch_holding_indices.items():
                     if 0 <= row_idx < len(base_holding_counts):
-                        base_holding_counts[row_idx] += len(hold_indices)
-                        base_matched_holding_indices[row_idx].extend(hold_indices)
+                        base_holding_counts[row_idx] += len(hold_pairs)
+                        base_matched_holding_indices[row_idx].extend(hold_pairs)
 
                 if processed >= next_progress or processed == total_holdings:
                     log(
@@ -1663,7 +1754,8 @@ def main() -> None:
     for row, res in zip(hold_rows, results):
         row[holding_by_key["gsz_primary"].name] = res[0]
         row[holding_by_key["gsz_debug"].name] = res[1]
-        row[holding_by_key["match_count"].name] = res[2]
+        row[holding_by_key["match_status"].name] = res[2]
+        row[holding_by_key["match_count"].name] = res[3]
 
     for idx, row in enumerate(hold_rows):
         hold_rows[idx] = reorder_row_with_output_columns(row, output_format["holding_columns"])
@@ -1671,6 +1763,7 @@ def main() -> None:
     all_key_cols = and_full_cols + and_not_cols + and_non_cols + or_full_cols + or_not_cols + or_non_cols
     enrich_base_rows(
         base_rows,
+        base_metas=metas_list,
         all_key_cols=all_key_cols,
         per_row_holding_counts=base_holding_counts,
         per_row_matched_holding_indices=base_matched_holding_indices,
