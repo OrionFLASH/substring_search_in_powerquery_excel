@@ -46,7 +46,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 class OutputColumnSpec:
     """Описание добавляемой колонки на выходном листе."""
 
-    role: str
+    key: str
     name: str
     width: float
     wrap: bool = False
@@ -66,6 +66,9 @@ DEFAULT_BASE_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
     OutputColumnSpec("key_length", "длина ключа", 30),
     OutputColumnSpec("key_repeat_count", "число повторов", 30),
 )
+
+HOLDING_OUTPUT_COLUMN_KEYS: tuple[str, ...] = tuple(column.key for column in DEFAULT_HOLDING_OUTPUT_COLUMNS)
+BASE_OUTPUT_COLUMN_KEYS: tuple[str, ...] = tuple(column.key for column in DEFAULT_BASE_OUTPUT_COLUMNS)
 
 
 def normalize_text(value: Any) -> str:
@@ -521,9 +524,14 @@ def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> N
         raise ValueError(f"В {where} отсутствуют колонки: {missing}")
 
 
+def output_columns_by_key(columns: tuple[OutputColumnSpec, ...]) -> dict[str, OutputColumnSpec]:
+    """Словарь key -> спецификация колонки."""
+    return {column.key: column for column in columns}
+
+
 def output_columns_by_role(columns: tuple[OutputColumnSpec, ...]) -> dict[str, OutputColumnSpec]:
-    """Словарь role -> спецификация колонки."""
-    return {column.role: column for column in columns}
+    """Алиас для обратной совместимости."""
+    return output_columns_by_key(columns)
 
 
 def output_column_names(columns: tuple[OutputColumnSpec, ...]) -> list[str]:
@@ -556,6 +564,104 @@ def _legacy_wrap_overrides(format_cfg: dict[str, Any]) -> dict[str, bool]:
     return overrides
 
 
+def _build_output_column_spec(
+    default_spec: OutputColumnSpec,
+    item: Any,
+    default_width: float,
+    legacy_widths: dict[str, float],
+    legacy_wraps: dict[str, bool],
+) -> OutputColumnSpec:
+    """Сборка спецификации колонки из элемента конфигурации."""
+    if item is None:
+        return OutputColumnSpec(
+            key=default_spec.key,
+            name=default_spec.name,
+            width=float(
+                legacy_widths.get(
+                    default_spec.key,
+                    default_spec.width if default_spec.width > 0 else default_width,
+                )
+            ),
+            wrap=legacy_wraps.get(default_spec.key, default_spec.wrap),
+        )
+
+    if isinstance(item, str):
+        return OutputColumnSpec(
+            key=default_spec.key,
+            name=item,
+            width=default_width,
+            wrap=legacy_wraps.get(default_spec.key, default_spec.wrap),
+        )
+
+    if isinstance(item, dict):
+        return OutputColumnSpec(
+            key=default_spec.key,
+            name=str(item.get("name", default_spec.name)),
+            width=float(item.get("width", default_width)),
+            wrap=bool(item.get("wrap", legacy_wraps.get(default_spec.key, default_spec.wrap))),
+        )
+
+    raise ValueError(
+        f"Некорректная настройка columns['{default_spec.key}'] в output_format: ожидается объект"
+    )
+
+
+def _parse_columns_mapping(
+    raw_columns: dict[str, Any],
+    defaults: tuple[OutputColumnSpec, ...],
+    default_width: float,
+    legacy_widths: dict[str, float],
+    legacy_wraps: dict[str, bool],
+) -> tuple[OutputColumnSpec, ...]:
+    """Разбор columns как словаря key -> {name, width, wrap}."""
+    allowed_keys = {spec.key for spec in defaults}
+    unknown_keys = sorted(set(raw_columns) - allowed_keys)
+    if unknown_keys:
+        raise ValueError(
+            f"Неизвестные ключи columns в output_format: {unknown_keys}. "
+            f"Допустимые ключи: {sorted(allowed_keys)}"
+        )
+
+    return tuple(
+        _build_output_column_spec(
+            default_spec=default_spec,
+            item=raw_columns.get(default_spec.key),
+            default_width=default_width,
+            legacy_widths=legacy_widths,
+            legacy_wraps=legacy_wraps,
+        )
+        for default_spec in defaults
+    )
+
+
+def _parse_columns_list(
+    raw_columns: list[Any],
+    defaults: tuple[OutputColumnSpec, ...],
+    default_width: float,
+    legacy_widths: dict[str, float],
+    legacy_wraps: dict[str, bool],
+) -> tuple[OutputColumnSpec, ...]:
+    """Разбор columns как списка (устаревший формат по позиции или с полем key)."""
+    if raw_columns and all(isinstance(item, dict) and item.get("key") for item in raw_columns):
+        keyed: dict[str, Any] = {}
+        for item in raw_columns:
+            if not isinstance(item, dict):
+                continue
+            keyed[str(item["key"])] = item
+        return _parse_columns_mapping(keyed, defaults, default_width, legacy_widths, legacy_wraps)
+
+    return tuple(
+        _build_output_column_spec(
+            default_spec=default_spec,
+            item=raw_columns[idx] if idx < len(raw_columns) else None,
+            default_width=default_width,
+            legacy_widths=legacy_widths,
+            legacy_wraps=legacy_wraps,
+        )
+        for idx, default_spec in enumerate(defaults)
+    )
+
+
 def parse_sheet_output_columns(
     sheet_cfg: Any,
     defaults: tuple[OutputColumnSpec, ...],
@@ -563,51 +669,47 @@ def parse_sheet_output_columns(
     legacy_widths: dict[str, float] | None = None,
     legacy_wraps: dict[str, bool] | None = None,
 ) -> tuple[OutputColumnSpec, ...]:
-    """Разбор списка колонок листа из config.json."""
+    """Разбор columns листа из config.json."""
     legacy_widths = legacy_widths or {}
     legacy_wraps = legacy_wraps or {}
 
+    raw_columns: Any = None
     if isinstance(sheet_cfg, dict):
-        raw_columns = sheet_cfg.get("columns", [])
+        raw_columns = sheet_cfg.get("columns")
     elif isinstance(sheet_cfg, list):
         raw_columns = sheet_cfg
-    else:
-        raw_columns = []
 
-    if not raw_columns:
+    if raw_columns is None or raw_columns == []:
         return tuple(
-            OutputColumnSpec(
-                role=spec.role,
-                name=spec.name,
-                width=float(legacy_widths.get(spec.role, spec.width if spec.width > 0 else default_width)),
-                wrap=legacy_wraps.get(spec.role, spec.wrap),
+            _build_output_column_spec(
+                default_spec=spec,
+                item=None,
+                default_width=default_width,
+                legacy_widths=legacy_widths,
+                legacy_wraps=legacy_wraps,
             )
             for spec in defaults
         )
 
-    parsed: list[OutputColumnSpec] = []
-    for idx, default_spec in enumerate(defaults):
-        if idx < len(raw_columns):
-            item = raw_columns[idx]
-            if isinstance(item, str):
-                name = item
-                width = default_width
-                wrap = default_spec.wrap
-            elif isinstance(item, dict):
-                name = str(item.get("name", default_spec.name))
-                width = float(item.get("width", default_width))
-                wrap = bool(item.get("wrap", default_spec.wrap))
-            else:
-                raise ValueError(
-                    f"Некорректный элемент columns[{idx}] в output_format: ожидается объект или строка"
-                )
-        else:
-            name = default_spec.name
-            width = float(legacy_widths.get(default_spec.role, default_spec.width if default_spec.width > 0 else default_width))
-            wrap = legacy_wraps.get(default_spec.role, default_spec.wrap)
+    if isinstance(raw_columns, dict):
+        return _parse_columns_mapping(
+            raw_columns=raw_columns,
+            defaults=defaults,
+            default_width=default_width,
+            legacy_widths=legacy_widths,
+            legacy_wraps=legacy_wraps,
+        )
 
-        parsed.append(OutputColumnSpec(default_spec.role, name, width, wrap))
-    return tuple(parsed)
+    if isinstance(raw_columns, list):
+        return _parse_columns_list(
+            raw_columns=raw_columns,
+            defaults=defaults,
+            default_width=default_width,
+            legacy_widths=legacy_widths,
+            legacy_wraps=legacy_wraps,
+        )
+
+    raise ValueError("output_format.columns должен быть объектом или списком")
 
 
 def resolve_output_format(format_cfg: dict[str, Any] | None) -> dict[str, Any]:
@@ -840,13 +942,13 @@ def enrich_base_rows(
     holding_name_column: str,
     base_columns: tuple[OutputColumnSpec, ...],
 ) -> None:
-    base_by_role = output_columns_by_role(base_columns)
-    col_holding_count = base_by_role["holding_count"].name
-    col_found_holding = base_by_role["found_holding"].name
-    col_found_debug = base_by_role["found_holding_debug"].name
-    col_key_string = base_by_role["key_string"].name
-    col_key_length = base_by_role["key_length"].name
-    col_key_repeat = base_by_role["key_repeat_count"].name
+    base_by_key = output_columns_by_key(base_columns)
+    col_holding_count = base_by_key["holding_count"].name
+    col_found_holding = base_by_key["found_holding"].name
+    col_found_debug = base_by_key["found_holding_debug"].name
+    col_key_string = base_by_key["key_string"].name
+    col_key_length = base_by_key["key_length"].name
+    col_key_repeat = base_by_key["key_repeat_count"].name
 
     key_strings: list[str] = []
     for idx, row in enumerate(base_rows):
@@ -1373,11 +1475,11 @@ def main() -> None:
                 next_idx_to_flush += 1
 
     output_format = settings["output_format"]
-    holding_by_role = output_columns_by_role(output_format["holding_columns"])
+    holding_by_key = output_columns_by_key(output_format["holding_columns"])
     for row, res in zip(hold_rows, results):
-        row[holding_by_role["gsz_primary"].name] = res[0]
-        row[holding_by_role["gsz_debug"].name] = res[1]
-        row[holding_by_role["match_count"].name] = res[2]
+        row[holding_by_key["gsz_primary"].name] = res[0]
+        row[holding_by_key["gsz_debug"].name] = res[1]
+        row[holding_by_key["match_count"].name] = res[2]
 
     for idx, row in enumerate(hold_rows):
         hold_rows[idx] = reorder_row_with_output_columns(row, output_format["holding_columns"])

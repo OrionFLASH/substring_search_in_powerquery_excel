@@ -58,21 +58,21 @@
       "min_width_all": 30,
       "format_data_vertical_center": true,
       "holding_sheet": {
-        "columns": [
-          {"name": "условное ГСЗ", "width": 150},
-          {"name": "Отладка_совпадения_ГСЗ", "width": 100, "wrap": true},
-          {"name": "Кол-во совпадений", "width": 30}
-        ]
+        "columns": {
+          "gsz_primary": {"name": "условное ГСЗ", "width": 150},
+          "gsz_debug": {"name": "Отладка_совпадения_ГСЗ", "width": 100, "wrap": true},
+          "match_count": {"name": "Кол-во совпадений", "width": 30}
+        }
       },
       "base_sheet": {
-        "columns": [
-          {"name": "кол-во холдингов", "width": 30},
-          {"name": "найденный холдинг", "width": 150},
-          {"name": "Отладка_найденного_холдинга", "width": 100, "wrap": true},
-          {"name": "строка ключа", "width": 30},
-          {"name": "длина ключа", "width": 30},
-          {"name": "число повторов", "width": 30}
-        ]
+        "columns": {
+          "holding_count": {"name": "кол-во холдингов", "width": 30},
+          "found_holding": {"name": "найденный холдинг", "width": 150},
+          "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 100, "wrap": true},
+          "key_string": {"name": "строка ключа", "width": 30},
+          "key_length": {"name": "длина ключа", "width": 30},
+          "key_repeat_count": {"name": "число повторов", "width": 30}
+        }
       }
     }
   }
