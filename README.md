@@ -225,7 +225,7 @@ python3 src/gsz_matcher_parallel.py \
         "columns": {
           "gsz_primary": {"name": "условное ГСЗ", "width": 150},
           "gsz_debug": {"name": "Отладка_совпадения_ГСЗ", "width": 100, "wrap": true},
-          "match_status": {"name": "статус", "width": 40},
+          "match_status": {"name": "статус", "width": 40, "wrap": true},
           "match_count": {"name": "Кол-во совпадений", "width": 30}
         }
       },
@@ -234,7 +234,7 @@ python3 src/gsz_matcher_parallel.py \
           "holding_count": {"name": "кол-во холдингов", "width": 30},
           "found_holding": {"name": "найденный холдинг", "width": 150},
           "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 100, "wrap": true},
-          "match_status": {"name": "статус", "width": 40},
+          "match_status": {"name": "статус", "width": 40, "wrap": true},
           "key_string": {"name": "строка ключа", "width": 30},
           "key_length": {"name": "длина ключа", "width": 30},
           "key_repeat_count": {"name": "число повторов", "width": 30}
@@ -462,4 +462,5 @@ python3 src/generate_gsz_keys.py
 | 1.8 | 2026-07-13 | Добавлены исключающие ключи `key_and_non_*` и `key_or_non_*` в Python-матчере и конфиге |
 | 1.9 | 2026-07-13 | `key_fix_id` — фиксированное соответствие ГСЗ ↔ холдинг; колонка `статус` (`match_status`) |
 | 1.10 | 2026-07-13 | Накопление статусов в одной ячейке; `match_status_texts` в config; partial fix; `=>` в «найденный холдинг» |
+| 1.11 | 2026-07-13 | Перенос по строкам (`wrap`) в колонке «статус» на обоих листах |
 | 1.9 | 2026-07-13 | Добавлен Power Query `_HOLD_OD_GSZ_FAST_V2` с `non`-ключами и автоопределением колонок |

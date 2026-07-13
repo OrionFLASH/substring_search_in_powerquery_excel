@@ -272,6 +272,8 @@ class TestBaseHoldingColumns(unittest.TestCase):
         self.assertEqual(holding_by_key["gsz_primary"].name, "ГСЗ")
         self.assertEqual(holding_by_key["gsz_primary"].width, 120)
         self.assertEqual(base_by_key["found_holding_debug"].wrap, True)
+        self.assertEqual(holding_by_key["match_status"].wrap, True)
+        self.assertEqual(base_by_key["match_status"].wrap, True)
         self.assertEqual(resolved["min_width_all"], 40)
 
     def test_resolve_output_format_rejects_unknown_key(self) -> None:

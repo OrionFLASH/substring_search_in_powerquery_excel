@@ -89,7 +89,7 @@ class OutputColumnSpec:
 DEFAULT_HOLDING_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
     OutputColumnSpec("gsz_primary", "условное ГСЗ", 150),
     OutputColumnSpec("gsz_debug", "Отладка_совпадения_ГСЗ", 100, wrap=True),
-    OutputColumnSpec("match_status", "статус", 40),
+    OutputColumnSpec("match_status", "статус", 40, wrap=True),
     OutputColumnSpec("match_count", "Кол-во совпадений", 30),
 )
 
@@ -97,7 +97,7 @@ DEFAULT_BASE_OUTPUT_COLUMNS: tuple[OutputColumnSpec, ...] = (
     OutputColumnSpec("holding_count", "кол-во холдингов", 30),
     OutputColumnSpec("found_holding", "найденный холдинг", 150),
     OutputColumnSpec("found_holding_debug", "Отладка_найденного_холдинга", 100, wrap=True),
-    OutputColumnSpec("match_status", "статус", 40),
+    OutputColumnSpec("match_status", "статус", 40, wrap=True),
     OutputColumnSpec("key_string", "строка ключа", 30),
     OutputColumnSpec("key_length", "длина ключа", 30),
     OutputColumnSpec("key_repeat_count", "число повторов", 30),
