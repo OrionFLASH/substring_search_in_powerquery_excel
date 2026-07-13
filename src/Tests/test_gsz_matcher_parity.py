@@ -22,6 +22,7 @@ from gsz_matcher_parallel import (  # noqa: E402
     enrich_base_rows,
     match_single_holding,
     match_single_holding_brute,
+    normalize_holding_id,
     output_column_names,
     parse_sheet_output_columns,
     read_excel_table,
@@ -63,6 +64,13 @@ class TestGszMatcherParity(unittest.TestCase):
         cls.or_non_cols = block.get("or_non_cols", DEFAULT_OR_NON)
 
         base_rows = read_excel_table(cls.input_xlsx, cls.base_table)
+        hold_rows = read_excel_table(cls.input_xlsx, cls.holding_table)
+        cls.holding_ids = [
+            normalize_holding_id(r.get(block.get("holding_id_column", "ID холдинга")))
+            for r in hold_rows
+        ]
+        holdings_id_set = frozenset(h for h in cls.holding_ids if h)
+        fix_id_col = block.get("fix_id_col", "key_fix_id")
         metas = tuple(
             build_meta_row(
                 row=r,
@@ -73,19 +81,20 @@ class TestGszMatcherParity(unittest.TestCase):
                 or_full_cols=cls.or_full_cols,
                 or_not_cols=cls.or_not_cols,
                 or_non_cols=cls.or_non_cols,
+                fix_id_col=fix_id_col,
+                holdings_id_set=holdings_id_set,
             )
             for r in base_rows
         )
         worker_init(metas)
 
-        hold_rows = read_excel_table(cls.input_xlsx, cls.holding_table)
         cls.holding_texts = [r.get(cls.holding_column) for r in hold_rows]
 
     def test_fast_matches_brute_on_all_holdings(self) -> None:
         mismatches: list[tuple[int, str, tuple, tuple]] = []
         for i, text in enumerate(self.holding_texts):
-            fast = match_single_holding(text)
-            brute = match_single_holding_brute(text)
+            fast = match_single_holding(self.holding_ids[i], text)
+            brute = match_single_holding_brute(self.holding_ids[i], text)
             if fast != brute:
                 mismatches.append((i, str(text), fast, brute))
                 if len(mismatches) >= 5:
@@ -171,7 +180,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
             holding_id_column="ID холдинга",
             holding_name_column="Холдинг",
         )
-        self.assertEqual(primary, "есть пересечения по ключам")
+        self.assertEqual(primary, "[101]: ГК ПИК")
         self.assertEqual(debug, "[101]: ГК ПИК;\n[202]: Самолет;")
 
     def test_enrich_base_rows_column_order(self) -> None:
@@ -184,9 +193,21 @@ class TestBaseHoldingColumns(unittest.TestCase):
         )
         enrich_base_rows(
             base_rows=base_rows,
+            base_metas=[
+                build_meta_row(
+                    row=base_rows[0],
+                    gsz_col="Наименование, регион",
+                    and_full_cols=["key_and_full_1"],
+                    and_not_cols=[],
+                    and_non_cols=[],
+                    or_full_cols=[],
+                    or_not_cols=[],
+                    or_non_cols=[],
+                )
+            ],
             all_key_cols=["key_and_full_1"],
             per_row_holding_counts=[1],
-            per_row_matched_holding_indices=[[0]],
+            per_row_matched_holding_indices=[[(0, False)]],
             hold_rows=hold_rows,
             holding_id_column="ID холдинга",
             holding_name_column="Холдинг",
@@ -207,6 +228,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
             "кол-во холдингов": 2,
             "найденный холдинг": "a",
             "Отладка_найденного_холдинга": "b",
+            "статус": "найдено соответствие",
             "строка ключа": "k",
             "длина ключа": 1,
         }
@@ -224,6 +246,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
                     "columns": {
                         "gsz_primary": {"name": "ГСЗ", "width": 120},
                         "gsz_debug": {"name": "Отладка ГСЗ", "width": 80, "wrap": False},
+                        "match_status": {"name": "Статус", "width": 40},
                         "match_count": {"name": "Совпадений", "width": 25},
                     }
                 },
@@ -232,6 +255,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
                         "holding_count": {"name": "Холдингов", "width": 35},
                         "found_holding": {"name": "Холдинг", "width": 140},
                         "found_holding_debug": {"name": "Отладка холдинга", "width": 90, "wrap": True},
+                        "match_status": {"name": "Статус базы", "width": 40},
                         "key_string": {"name": "Ключ", "width": 35},
                         "key_length": {"name": "Длина", "width": 35},
                         "key_repeat_count": {"name": "Повторы", "width": 35},
