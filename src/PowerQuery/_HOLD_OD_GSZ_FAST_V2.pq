@@ -50,6 +50,8 @@ let
     Статус_одно = "найдено соответствие",
     Статус_несколько = "есть пересечения по ключам",
     Статус_фикс = "зафиксированное значение",
+    Статус_фикс_часть = "найдена часть фиксированных значений",
+    Статус_фикс_не_найден = "фикс значение не найдено",
 
     // Все ID холдингов из _HOLD_OD — для режима key_fix_id.
     fnНормализоватьId = (значение as any) as text =>
@@ -80,20 +82,34 @@ let
     fnРежимFix = (fixIds as list) as text =>
         if List.Count(fixIds) = 0 then
             "none"
-        else if List.AnyTrue(List.Transform(fixIds, each List.Contains(МножествоIdХолдингов, _))) then
-            "resolved"
         else
-            "fallback",
+            let
+                найдено = List.Select(fixIds, each List.Contains(МножествоIdХолдингов, _)),
+                nНайдено = List.Count(найдено),
+                nВсего = List.Count(fixIds)
+            in
+                if nНайдено = 0 then
+                    "fallback"
+                else if nНайдено = nВсего then
+                    "resolved"
+                else
+                    "partial",
 
     fnСтатусХолдинга = (список as list, числоФикс as number) as text =>
-        if List.Count(список) = 0 then
-            Статус_нет
-        else if числоФикс = List.Count(список) then
-            Статус_фикс
-        else if List.Count(список) = 1 then
-            Статус_одно
-        else
-            Статус_несколько,
+        let
+            nВсего = List.Count(список),
+            nКлюч = nВсего - числоФикс,
+            строки = List.RemoveNulls({
+                if числоФикс > 0 then Статус_фикс else null,
+                if nКлюч > 1 then Статус_несколько else null,
+                if nКлюч = 1 and числоФикс = 0 then Статус_одно else null,
+                if nКлюч = 1 and числоФикс > 0 then Статус_одно else null
+            })
+        in
+            if nВсего = 0 then
+                Статус_нет
+            else
+                Text.Combine(строки, "#(lf)"),
 
     // Явные списки колонок. Если список НЕ пустой — используется вместо автоопределения.
     // Пример override: Колонки_and_full_явно = {"key_and_full_1", "key_and_full_2", "key_and_full_4"}.
@@ -602,7 +618,7 @@ let
                     List.Select(
                         Справочник_подготовленный,
                         (строкаMeta) =>
-                            строкаMeta[FixMode] = "resolved"
+                            (строкаMeta[FixMode] = "resolved" or строкаMeta[FixMode] = "partial")
                             and List.Contains(строкаMeta[FixIds], idХолдинга)
                     ),
 
@@ -616,7 +632,7 @@ let
                 List.Select(
                     Справочник_подготовленный,
                     (строкаMeta) =>
-                        (строкаMeta[FixMode] = "none" or строкаMeta[FixMode] = "fallback")
+                        (строкаMeta[FixMode] = "none" or строкаMeta[FixMode] = "fallback" or строкаMeta[FixMode] = "partial")
                         and fnКандидатПоЯкорю(текст, слова, строкаMeta[Anchor])
                 ),
 
