@@ -35,8 +35,10 @@ from openpyxl.utils import get_column_letter
 
 DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
 DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
+DEFAULT_AND_NON = ["key_and_non_1", "key_and_non_2", "key_and_non_3"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
+DEFAULT_OR_NON = ["key_or_non_1", "key_or_non_2", "key_or_non_3"]
 DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
 DEFAULT_MIN_WIDTH_ALL = 30.0
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
@@ -143,6 +145,8 @@ class BaseMeta:
     has_keys: bool
     and_tokens: tuple[Token, ...]
     or_tokens: tuple[Token, ...]
+    and_non_tokens: tuple[str, ...]
+    or_non_tokens: tuple[str, ...]
     anchor: Token | None
 
 
@@ -150,6 +154,11 @@ def parse_cols(value: str) -> list[str]:
     if isinstance(value, list):
         return [str(v).strip() for v in value if str(v).strip()]
     return [v.strip() for v in str(value).split(",") if v.strip()]
+
+
+def normalize_non_text(value: Any) -> str:
+    """Нормализация текста для non-исключений: без пробельных символов."""
+    return "".join(ch for ch in normalize_text(value) if not ch.isspace())
 
 
 def pick_best_anchor(tokens: list[Token]) -> Token | None:
@@ -176,17 +185,23 @@ def build_meta_row(
     gsz_col: str,
     and_full_cols: list[str],
     and_not_cols: list[str],
+    and_non_cols: list[str],
     or_full_cols: list[str],
     or_not_cols: list[str],
+    or_non_cols: list[str],
 ) -> BaseMeta:
     and_full_raw = [normalize_text(row.get(c, "")) for c in and_full_cols]
     and_not_raw = [normalize_text(row.get(c, "")) for c in and_not_cols]
+    and_non_raw = [normalize_non_text(row.get(c, "")) for c in and_non_cols]
     or_full_raw = [normalize_text(row.get(c, "")) for c in or_full_cols]
     or_not_raw = [normalize_text(row.get(c, "")) for c in or_not_cols]
+    or_non_raw = [normalize_non_text(row.get(c, "")) for c in or_non_cols]
 
     and_tokens = [Token(w, True) for w in and_full_raw if w] + [Token(w, False) for w in and_not_raw if w]
     or_tokens = [Token(w, True) for w in or_full_raw if w] + [Token(w, False) for w in or_not_raw if w]
-    has_keys = bool(and_tokens or or_tokens)
+    and_non_tokens = tuple(w for w in and_non_raw if w)
+    or_non_tokens = tuple(w for w in or_non_raw if w)
+    has_keys = bool(and_tokens or or_tokens or and_non_tokens or or_non_tokens)
     anchor = pick_anchor(and_tokens, or_tokens)
 
     gsz_value = str(row.get(gsz_col, "") or "").strip()
@@ -195,11 +210,14 @@ def build_meta_row(
         has_keys=has_keys,
         and_tokens=tuple(and_tokens),
         or_tokens=tuple(or_tokens),
+        and_non_tokens=and_non_tokens,
+        or_non_tokens=or_non_tokens,
         anchor=anchor,
     )
 
 
 def row_matches(text: str, meta: BaseMeta) -> bool:
+    text = normalize_text(text)
     if not text or not meta.has_keys:
         return False
 
@@ -224,6 +242,23 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
                 break
         if not ok_or:
             return False
+
+    compact_text = normalize_non_text(text)
+    if meta.and_non_tokens:
+        non_and_positions: list[list[tuple[int, int]]] = []
+        for token in meta.and_non_tokens:
+            pos = all_positions_full(compact_text, token)
+            if not pos:
+                non_and_positions = []
+                break
+            non_and_positions.append(pos)
+        if non_and_positions and and_non_overlapping(non_and_positions):
+            return False
+
+    if meta.or_non_tokens:
+        for token in meta.or_non_tokens:
+            if all_positions_full(compact_text, token):
+                return False
 
     return True
 
@@ -398,6 +433,7 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
     text = normalize_text(text_value)
     if not text:
         return "-", "-", 0, ()
+    compact_text = normalize_non_text(text)
 
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
 
@@ -441,6 +477,27 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
         if not ok_or:
             continue
 
+        non_rejected = False
+        if meta.and_non_tokens:
+            non_and_positions: list[list[tuple[int, int]]] = []
+            for token in meta.and_non_tokens:
+                pos = get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)
+                if not pos:
+                    non_and_positions = []
+                    break
+                non_and_positions.append(pos)
+            if non_and_positions and and_non_overlapping(non_and_positions):
+                non_rejected = True
+
+        if not non_rejected and meta.or_non_tokens:
+            for token in meta.or_non_tokens:
+                if (get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)):
+                    non_rejected = True
+                    break
+
+        if non_rejected:
+            continue
+
         # Полное совпадение найдено.
         matched_row_indices.append(idx)
         if meta.gsz_value:
@@ -460,6 +517,7 @@ def match_single_holding_brute(text_value: Any) -> tuple[str, str, int, tuple[in
     text = normalize_text(text_value)
     if not text:
         return "-", "-", 0, ()
+    compact_text = normalize_non_text(text)
 
     pos_cache: dict[tuple[str, bool], list[tuple[int, int]]] = {}
 
@@ -500,6 +558,27 @@ def match_single_holding_brute(text_value: Any) -> tuple[str, str, int, tuple[in
                     ok_or = True
                     break
         if not ok_or:
+            continue
+
+        non_rejected = False
+        if meta.and_non_tokens:
+            non_and_positions: list[list[tuple[int, int]]] = []
+            for token in meta.and_non_tokens:
+                pos = get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)
+                if not pos:
+                    non_and_positions = []
+                    break
+                non_and_positions.append(pos)
+            if non_and_positions and and_non_overlapping(non_and_positions):
+                non_rejected = True
+
+        if not non_rejected and meta.or_non_tokens:
+            for token in meta.or_non_tokens:
+                if (get_positions(token, True) if compact_text == text else all_positions_full(compact_text, token)):
+                    non_rejected = True
+                    break
+
+        if non_rejected:
             continue
 
         matched_row_indices.append(idx)
@@ -1143,8 +1222,10 @@ def make_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--gsz-column", help="Колонка значения условного ГСЗ")
     p.add_argument("--and-full-cols", help="AND full колонки через запятую")
     p.add_argument("--and-not-cols", help="AND not колонки через запятую")
+    p.add_argument("--and-non-cols", help="AND non колонки через запятую")
     p.add_argument("--or-full-cols", help="OR full колонки через запятую")
     p.add_argument("--or-not-cols", help="OR not колонки через запятую")
+    p.add_argument("--or-non-cols", help="OR non колонки через запятую")
     p.add_argument("--workers", type=int, help="Число процессов")
     p.add_argument("--work-batch-size", type=int, help="Размер батча холдингов на один worker")
     p.add_argument("--chunk-size", type=int, help=argparse.SUPPRESS)
@@ -1174,8 +1255,10 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "gsz_column": block.get("gsz_column", "Наименование, регион"),
         "and_full_cols": block.get("and_full_cols", DEFAULT_AND_FULL),
         "and_not_cols": block.get("and_not_cols", DEFAULT_AND_NOT),
+        "and_non_cols": block.get("and_non_cols", DEFAULT_AND_NON),
         "or_full_cols": block.get("or_full_cols", DEFAULT_OR_FULL),
         "or_not_cols": block.get("or_not_cols", DEFAULT_OR_NOT),
+        "or_non_cols": block.get("or_non_cols", DEFAULT_OR_NON),
         "workers": block.get("workers", max(1, (mp.cpu_count() or 2) - 1)),
         "work_batch_size": block.get("work_batch_size", 50),
         "log_stages": block.get("log_stages", True),
@@ -1226,8 +1309,10 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "gsz_column": args.gsz_column,
         "and_full_cols": args.and_full_cols,
         "and_not_cols": args.and_not_cols,
+        "and_non_cols": args.and_non_cols,
         "or_full_cols": args.or_full_cols,
         "or_not_cols": args.or_not_cols,
+        "or_non_cols": args.or_non_cols,
         "workers": args.workers,
         "work_batch_size": args.work_batch_size if args.work_batch_size is not None else args.chunk_size,
     }
@@ -1284,8 +1369,10 @@ def main() -> None:
 
     and_full_cols = parse_cols(settings["and_full_cols"])
     and_not_cols = parse_cols(settings["and_not_cols"])
+    and_non_cols = parse_cols(settings["and_non_cols"])
     or_full_cols = parse_cols(settings["or_full_cols"])
     or_not_cols = parse_cols(settings["or_not_cols"])
+    or_non_cols = parse_cols(settings["or_non_cols"])
 
     t0 = time.perf_counter()
     if settings["log_stages"]:
@@ -1348,7 +1435,13 @@ def main() -> None:
     )
     ensure_columns(
         base_rows,
-        [settings["gsz_column"]] + and_full_cols + and_not_cols + or_full_cols + or_not_cols,
+        [settings["gsz_column"]]
+        + and_full_cols
+        + and_not_cols
+        + and_non_cols
+        + or_full_cols
+        + or_not_cols
+        + or_non_cols,
         f"таблице {settings['base_table']}",
     )
 
@@ -1363,8 +1456,10 @@ def main() -> None:
                 gsz_col=settings["gsz_column"],
                 and_full_cols=and_full_cols,
                 and_not_cols=and_not_cols,
+                and_non_cols=and_non_cols,
                 or_full_cols=or_full_cols,
                 or_not_cols=or_not_cols,
+                or_non_cols=or_non_cols,
             )
         )
         if settings["log_stages"] and (idx % base_progress_every == 0 or idx == len(base_rows)):
@@ -1484,7 +1579,7 @@ def main() -> None:
     for idx, row in enumerate(hold_rows):
         hold_rows[idx] = reorder_row_with_output_columns(row, output_format["holding_columns"])
 
-    all_key_cols = and_full_cols + and_not_cols + or_full_cols + or_not_cols
+    all_key_cols = and_full_cols + and_not_cols + and_non_cols + or_full_cols + or_not_cols + or_non_cols
     enrich_base_rows(
         base_rows,
         all_key_cols=all_key_cols,

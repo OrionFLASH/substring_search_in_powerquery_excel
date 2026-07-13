@@ -27,6 +27,7 @@ from gsz_matcher_parallel import (  # noqa: E402
     read_excel_table,
     reorder_base_row_columns,
     resolve_output_format,
+    row_matches,
     worker_init,
 )
 
@@ -39,6 +40,8 @@ class TestGszMatcherParity(unittest.TestCase):
             cfg = json.load(f)
         block = cfg["gsz_matcher_parallel"]
         cls.input_xlsx = ROOT / block["input_xlsx"]
+        if not cls.input_xlsx.exists():
+            raise unittest.SkipTest(f"Файл тестовой книги не найден: {cls.input_xlsx}")
         cls.holding_table = block["holding_table"]
         cls.base_table = block["base_table"]
         cls.holding_column = block["holding_column"]
@@ -46,14 +49,18 @@ class TestGszMatcherParity(unittest.TestCase):
         from gsz_matcher_parallel import (  # noqa: E402
             DEFAULT_AND_FULL,
             DEFAULT_AND_NOT,
+            DEFAULT_AND_NON,
             DEFAULT_OR_FULL,
             DEFAULT_OR_NOT,
+            DEFAULT_OR_NON,
         )
 
         cls.and_full_cols = block.get("and_full_cols", DEFAULT_AND_FULL)
         cls.and_not_cols = block.get("and_not_cols", DEFAULT_AND_NOT)
+        cls.and_non_cols = block.get("and_non_cols", DEFAULT_AND_NON)
         cls.or_full_cols = block.get("or_full_cols", DEFAULT_OR_FULL)
         cls.or_not_cols = block.get("or_not_cols", DEFAULT_OR_NOT)
+        cls.or_non_cols = block.get("or_non_cols", DEFAULT_OR_NON)
 
         base_rows = read_excel_table(cls.input_xlsx, cls.base_table)
         metas = tuple(
@@ -62,8 +69,10 @@ class TestGszMatcherParity(unittest.TestCase):
                 gsz_col=cls.gsz_column,
                 and_full_cols=cls.and_full_cols,
                 and_not_cols=cls.and_not_cols,
+                and_non_cols=cls.and_non_cols,
                 or_full_cols=cls.or_full_cols,
                 or_not_cols=cls.or_not_cols,
+                or_non_cols=cls.or_non_cols,
             )
             for r in base_rows
         )
@@ -91,6 +100,52 @@ class TestGszMatcherParity(unittest.TestCase):
 
 
 class TestBaseHoldingColumns(unittest.TestCase):
+    def test_non_tokens_and_exclude_when_all_found_without_spaces(self) -> None:
+        meta = build_meta_row(
+            row={
+                "Наименование, регион": "X",
+                "key_and_full_1": "пик",
+                "key_and_not_1": "",
+                "key_and_non_1": "ммб",
+                "key_and_non_2": "ну",
+                "key_or_full_1": "",
+                "key_or_not_1": "",
+                "key_or_non_1": "",
+            },
+            gsz_col="Наименование, регион",
+            and_full_cols=["key_and_full_1"],
+            and_not_cols=["key_and_not_1"],
+            and_non_cols=["key_and_non_1", "key_and_non_2"],
+            or_full_cols=["key_or_full_1"],
+            or_not_cols=["key_or_not_1"],
+            or_non_cols=["key_or_non_1"],
+        )
+        self.assertFalse(row_matches("Ну ПИК ММБ", meta))
+        self.assertTrue(row_matches("Ну ПИК", meta))
+
+    def test_non_tokens_or_exclude_when_any_found_without_spaces(self) -> None:
+        meta = build_meta_row(
+            row={
+                "Наименование, регион": "X",
+                "key_and_full_1": "пик",
+                "key_and_not_1": "",
+                "key_and_non_1": "",
+                "key_or_full_1": "",
+                "key_or_not_1": "",
+                "key_or_non_1": "ммб",
+            },
+            gsz_col="Наименование, регион",
+            and_full_cols=["key_and_full_1"],
+            and_not_cols=["key_and_not_1"],
+            and_non_cols=["key_and_non_1"],
+            or_full_cols=["key_or_full_1"],
+            or_not_cols=["key_or_not_1"],
+            or_non_cols=["key_or_non_1"],
+        )
+        self.assertFalse(row_matches("ну пикммб", meta))
+        self.assertFalse(row_matches("ну пик ммб", meta))
+        self.assertTrue(row_matches("ну пик", meta))
+
     def test_build_base_holding_match_columns_single(self) -> None:
         hold_rows = [
             {"ID холдинга": 101, "Холдинг": "ГК ПИК"},
