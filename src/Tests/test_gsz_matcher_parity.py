@@ -166,28 +166,42 @@ class TestBaseHoldingColumns(unittest.TestCase):
             {
                 "min_width_all": 40,
                 "holding_sheet": {
-                    "columns": [
-                        {"name": "ГСЗ", "width": 120},
-                        {"name": "Отладка ГСЗ", "width": 80, "wrap": False},
-                        {"name": "Совпадений", "width": 25},
-                    ]
+                    "columns": {
+                        "gsz_primary": {"name": "ГСЗ", "width": 120},
+                        "gsz_debug": {"name": "Отладка ГСЗ", "width": 80, "wrap": False},
+                        "match_count": {"name": "Совпадений", "width": 25},
+                    }
                 },
                 "base_sheet": {
-                    "columns": [
-                        {"name": "Холдингов", "width": 35},
-                        {"name": "Холдинг", "width": 140},
-                        {"name": "Отладка холдинга", "width": 90, "wrap": True},
-                        {"name": "Ключ", "width": 35},
-                        {"name": "Длина", "width": 35},
-                        {"name": "Повторы", "width": 35},
-                    ]
+                    "columns": {
+                        "holding_count": {"name": "Холдингов", "width": 35},
+                        "found_holding": {"name": "Холдинг", "width": 140},
+                        "found_holding_debug": {"name": "Отладка холдинга", "width": 90, "wrap": True},
+                        "key_string": {"name": "Ключ", "width": 35},
+                        "key_length": {"name": "Длина", "width": 35},
+                        "key_repeat_count": {"name": "Повторы", "width": 35},
+                    }
                 },
             }
         )
-        self.assertEqual(resolved["holding_columns"][0].name, "ГСЗ")
-        self.assertEqual(resolved["holding_columns"][0].width, 120)
-        self.assertEqual(resolved["base_columns"][2].wrap, True)
+        holding_by_key = {column.key: column for column in resolved["holding_columns"]}
+        base_by_key = {column.key: column for column in resolved["base_columns"]}
+        self.assertEqual(holding_by_key["gsz_primary"].name, "ГСЗ")
+        self.assertEqual(holding_by_key["gsz_primary"].width, 120)
+        self.assertEqual(base_by_key["found_holding_debug"].wrap, True)
         self.assertEqual(resolved["min_width_all"], 40)
+
+    def test_resolve_output_format_rejects_unknown_key(self) -> None:
+        with self.assertRaises(ValueError):
+            resolve_output_format(
+                {
+                    "holding_sheet": {
+                        "columns": {
+                            "unknown_key": {"name": "X", "width": 10},
+                        }
+                    }
+                }
+            )
 
 
 if __name__ == "__main__":
