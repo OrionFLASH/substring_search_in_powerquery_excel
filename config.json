@@ -50,7 +50,7 @@
       "multiple": "есть пересечения по ключам",
       "fix_not_found": "фикс значение не найдено",
       "fix_partial": "найдена часть фиксированных значений",
-      "multiple_placeholder": "=>"
+      "multiple_placeholder": ":=>"
     },
     "workers": 8,
     "work_batch_size": 30,

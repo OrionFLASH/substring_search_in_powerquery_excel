@@ -64,7 +64,7 @@ DEFAULT_STATUS_FIXED = "зафиксированное значение"
 DEFAULT_STATUS_MULTIPLE = "есть пересечения по ключам"
 DEFAULT_STATUS_FIX_NOT_FOUND = "фикс значение не найдено"
 DEFAULT_STATUS_FIX_PARTIAL = "найдена часть фиксированных значений"
-DEFAULT_STATUS_MULTIPLE_PLACEHOLDER = "=>"
+DEFAULT_STATUS_MULTIPLE_PLACEHOLDER = ":=>"
 
 # Обратная совместимость для тестов и внешних импортов.
 STATUS_NONE = DEFAULT_STATUS_NONE
@@ -339,7 +339,7 @@ def compute_found_holding_primary(
     key_entries: list[str],
     texts: MatchStatusTexts,
 ) -> str:
-    """Колонка «найденный холдинг»: значение, одно совпадение или «=>»."""
+    """Колонка «найденный холдинг»: значение, одно совпадение или «:=>»."""
     if fixed_entries:
         if len(fixed_entries) == 1:
             return fixed_entries[0]
