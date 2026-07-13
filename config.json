@@ -26,8 +26,7 @@
     ],
     "and_non_cols": [
       "key_and_non_1",
-      "key_and_non_2",
-      "key_and_non_3"
+      "key_and_non_2"
     ],
     "or_full_cols": [
       "key_or_full_1",
@@ -41,8 +40,7 @@
     ],
     "or_non_cols": [
       "key_or_non_1",
-      "key_or_non_2",
-      "key_or_non_3"
+      "key_or_non_2"
     ],
     "workers": 8,
     "work_batch_size": 30,

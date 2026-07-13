@@ -2,15 +2,24 @@
 # -*- coding: utf-8 -*-
 """Параллельное сопоставление холдингов с условными ГСЗ.
 
-Скрипт переносит логику Power Query в Python:
-- and/or блоки;
-- full/not режимы;
-- непересечение интервалов для AND.
+Скрипт переносит логику Power Query в Python и формирует выходной Excel.
+
+Основной поток:
+1. Чтение смарт-таблиц `_HOLD_OD` и `_base_gsz`.
+2. Подготовка метаданных справочника (ключи, якорь, non-исключения).
+3. Параллельное сопоставление каждого холдинга с кандидатами из справочника.
+4. Запись результата на два листа с настраиваемыми колонками.
+
+Группы ключей в `_base_gsz`:
+- and_full / and_not — обязательные совпадения (подстрока / отдельное слово);
+- or_full / or_not — альтернативные совпадения;
+- and_non / or_non — исключения по тексту холдинга без пробелов.
 
 Оптимизации:
-- предобработка справочника _base_gsz;
+- предобработка справочника один раз;
 - якорный предфильтр кандидатов;
-- параллельная обработка строк _HOLD_OD.
+- кэш позиций токенов в рамках одного холдинга;
+- ProcessPoolExecutor для параллельной обработки.
 """
 
 from __future__ import annotations
@@ -33,12 +42,16 @@ from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 
 
+# =============================================================================
+# Константы: группы колонок ключей и настройки по умолчанию
+# Списки можно переопределить в config.json (and_full_cols, and_non_cols и т.д.)
+# =============================================================================
 DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
 DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
-DEFAULT_AND_NON = ["key_and_non_1", "key_and_non_2", "key_and_non_3"]
+DEFAULT_AND_NON = ["key_and_non_1", "key_and_non_2"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
-DEFAULT_OR_NON = ["key_or_non_1", "key_or_non_2", "key_or_non_3"]
+DEFAULT_OR_NON = ["key_or_non_1", "key_or_non_2"]
 DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
 DEFAULT_MIN_WIDTH_ALL = 30.0
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
@@ -73,13 +86,18 @@ HOLDING_OUTPUT_COLUMN_KEYS: tuple[str, ...] = tuple(column.key for column in DEF
 BASE_OUTPUT_COLUMN_KEYS: tuple[str, ...] = tuple(column.key for column in DEFAULT_BASE_OUTPUT_COLUMNS)
 
 
+# =============================================================================
+# Базовые текстовые операции для режимов full / not / non
+# =============================================================================
 def normalize_text(value: Any) -> str:
+    """Trim + нижний регистр. Используется для холдинга и обычных ключей."""
     if value is None:
         return ""
     return str(value).strip().lower()
 
 
 def is_letter(ch: str) -> bool:
+    """Проверка «буквенности» символа для границ слова в режиме not (латиница + кириллица)."""
     if len(ch) != 1:
         return False
     c = ch.lower()
@@ -87,6 +105,7 @@ def is_letter(ch: str) -> bool:
 
 
 def all_positions_full(text: str, word: str) -> list[tuple[int, int]]:
+    """Все вхождения подстроки (режим full). Интервал: (start, end) включительно."""
     if not word or len(word) > len(text):
         return []
     out: list[tuple[int, int]] = []
@@ -102,6 +121,7 @@ def all_positions_full(text: str, word: str) -> list[tuple[int, int]]:
 
 
 def positions_not(text: str, word: str) -> list[tuple[int, int]]:
+    """Позиции отдельного слова (режим not): границы — не буква."""
     result: list[tuple[int, int]] = []
     n = len(text)
     for s, e in all_positions_full(text, word):
@@ -113,10 +133,12 @@ def positions_not(text: str, word: str) -> list[tuple[int, int]]:
 
 
 def overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
+    """Пересекаются ли два интервала вхождений (включительные границы)."""
     return not (a[1] < b[0] or b[1] < a[0])
 
 
 def and_non_overlapping(position_lists: list[list[tuple[int, int]]], idx: int = 0, chosen: list[tuple[int, int]] | None = None) -> bool:
+    """Проверка AND-блока: все токены найдены и их интервалы не пересекаются."""
     chosen = chosen or []
     if idx >= len(position_lists):
         return True
@@ -135,22 +157,27 @@ def extract_words(text: str) -> set[str]:
 
 @dataclass(frozen=True)
 class Token:
+    """Один ключ поиска: слово и режим full (подстрока) / not (отдельное слово)."""
+
     word: str
     is_full: bool
 
 
 @dataclass(frozen=True)
 class BaseMeta:
+    """Предобработанная строка справочника _base_gsz для быстрого сопоставления."""
+
     gsz_value: str
     has_keys: bool
     and_tokens: tuple[Token, ...]
     or_tokens: tuple[Token, ...]
-    and_non_tokens: tuple[str, ...]
-    or_non_tokens: tuple[str, ...]
+    and_non_tokens: tuple[str, ...]  # исключение AND: все найдены → строка отклоняется
+    or_non_tokens: tuple[str, ...]   # исключение OR: любой найден → строка отклоняется
     anchor: Token | None
 
 
 def parse_cols(value: str) -> list[str]:
+    """Разбор списка колонок из config.json или CLI (список / строка через запятую)."""
     if isinstance(value, list):
         return [str(v).strip() for v in value if str(v).strip()]
     return [v.strip() for v in str(value).split(",") if v.strip()]
@@ -162,12 +189,14 @@ def normalize_non_text(value: Any) -> str:
 
 
 def pick_best_anchor(tokens: list[Token]) -> Token | None:
+    """Самый длинный токен из группы — лучший якорь для предфильтра кандидатов."""
     if not tokens:
         return None
     return max(tokens, key=lambda t: len(t.word))
 
 
 def pick_anchor(and_tokens: list[Token], or_tokens: list[Token]) -> Token | None:
+    """Якорный токен для предфильтра: приоритет not, затем самый длинный."""
     and_not = [t for t in and_tokens if not t.is_full]
     and_full = [t for t in and_tokens if t.is_full]
     or_not = [t for t in or_tokens if not t.is_full]
@@ -190,6 +219,7 @@ def build_meta_row(
     or_not_cols: list[str],
     or_non_cols: list[str],
 ) -> BaseMeta:
+    """Сборка метаданных одной строки справочника из шести групп колонок ключей."""
     and_full_raw = [normalize_text(row.get(c, "")) for c in and_full_cols]
     and_not_raw = [normalize_text(row.get(c, "")) for c in and_not_cols]
     and_non_raw = [normalize_non_text(row.get(c, "")) for c in and_non_cols]
@@ -217,6 +247,7 @@ def build_meta_row(
 
 
 def row_matches(text: str, meta: BaseMeta) -> bool:
+    """Проверка одной строки справочника: AND → OR → исключения non."""
     text = normalize_text(text)
     if not text or not meta.has_keys:
         return False
@@ -243,8 +274,10 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
         if not ok_or:
             return False
 
+    # --- Исключения non: текст холдинга без пробелов ---
     compact_text = normalize_non_text(text)
     if meta.and_non_tokens:
+        # AND NON: отклоняем, только если найдены ВСЕ non-ключи без пересечений
         non_and_positions: list[list[tuple[int, int]]] = []
         for token in meta.and_non_tokens:
             pos = all_positions_full(compact_text, token)
@@ -256,6 +289,7 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
             return False
 
     if meta.or_non_tokens:
+        # OR NON: отклоняем, если найден ХОТЯ БЫ ОДИН non-ключ
         for token in meta.or_non_tokens:
             if all_positions_full(compact_text, token):
                 return False
@@ -263,6 +297,9 @@ def row_matches(text: str, meta: BaseMeta) -> bool:
     return True
 
 
+# =============================================================================
+# Чтение Excel: смарт-таблицы (ListObject) → list[dict]
+# =============================================================================
 def find_table_ref(path: Path, table_name: str) -> tuple[str, tuple[int, int, int, int]]:
     """Найти лист и границы смарт-таблицы."""
     from openpyxl import load_workbook
@@ -347,6 +384,9 @@ def inspect_workbook_objects(path: Path) -> dict[str, Any]:
     }
 
 
+# =============================================================================
+# Глобальное состояние воркеров (инициализируется один раз на процесс)
+# =============================================================================
 BASE_METAS: tuple[BaseMeta, ...] = ()
 ANCHOR_NOT_INDEX: dict[str, tuple[int, ...]] = {}
 ANCHOR_FULL_INDEX: dict[str, tuple[int, ...]] = {}
@@ -357,6 +397,7 @@ LOG_FILE_PATH: Path | None = None
 
 
 def worker_init(base_metas: tuple[BaseMeta, ...]) -> None:
+    """Инициализация процесса: метаданные справочника + индексы якорных токенов."""
     global BASE_METAS
     global ANCHOR_NOT_INDEX
     global ANCHOR_FULL_INDEX
@@ -429,7 +470,14 @@ def candidate_indices_for_text(text: str) -> list[int]:
     return [i for i, v in enumerate(mark) if v]
 
 
+# =============================================================================
+# Сопоставление одного холдинга со справочником
+# =============================================================================
 def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...]]:
+    """Быстрый поиск: якорный предфильтр + полная проверка кандидатов.
+
+    Возвращает: (основной ГСЗ, отладка, кол-во совпадений, индексы строк справочника).
+    """
     text = normalize_text(text_value)
     if not text:
         return "-", "-", 0, ()
@@ -477,6 +525,7 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
         if not ok_or:
             continue
 
+        # --- Фильтр non-исключений (логика как в row_matches) ---
         non_rejected = False
         if meta.and_non_tokens:
             non_and_positions: list[list[tuple[int, int]]] = []
@@ -498,7 +547,7 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
         if non_rejected:
             continue
 
-        # Полное совпадение найдено.
+        # Полное совпадение найдено — запоминаем индекс строки справочника и имя ГСЗ.
         matched_row_indices.append(idx)
         if meta.gsz_value:
             matches.append(meta.gsz_value)
@@ -506,6 +555,7 @@ def match_single_holding(text_value: Any) -> tuple[str, str, int, tuple[int, ...
     if not matches:
         return "-", "-", 0, tuple(matched_row_indices)
 
+    # Формирование выходных колонок листа холдингов (как в Power Query).
     count = len(matches)
     debug_text = ";\n".join(matches)
     primary = "есть пересечения по ключам" if count > 1 else matches[0]
@@ -560,6 +610,7 @@ def match_single_holding_brute(text_value: Any) -> tuple[str, str, int, tuple[in
         if not ok_or:
             continue
 
+        # --- Фильтр non-исключений (логика как в row_matches) ---
         non_rejected = False
         if meta.and_non_tokens:
             non_and_positions: list[list[tuple[int, int]]] = []
@@ -595,6 +646,7 @@ def match_single_holding_brute(text_value: Any) -> tuple[str, str, int, tuple[in
 
 
 def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> None:
+    """Проверка наличия обязательных колонок перед сопоставлением."""
     if not rows:
         raise ValueError(f"{where} пуста")
     available = set(rows[0].keys())
@@ -603,6 +655,9 @@ def ensure_columns(rows: list[dict[str, Any]], cols: list[str], where: str) -> N
         raise ValueError(f"В {where} отсутствуют колонки: {missing}")
 
 
+# =============================================================================
+# Конфигурация выходных колонок Excel (key → name / width / wrap)
+# =============================================================================
 def output_columns_by_key(columns: tuple[OutputColumnSpec, ...]) -> dict[str, OutputColumnSpec]:
     """Словарь key -> спецификация колонки."""
     return {column.key: column for column in columns}
@@ -843,7 +898,11 @@ def apply_output_column_specs(
             apply_wrap_for_column_by_header(ws, column.name)
 
 
+# =============================================================================
+# Запись листов Excel: данные + форматирование
+# =============================================================================
 def write_sheet(ws: Any, rows: list[dict[str, Any]]) -> None:
+    """Запись list[dict] на лист: первая строка — заголовки, далее данные."""
     if not rows:
         return
     headers = list(rows[0].keys())
@@ -946,6 +1005,9 @@ def apply_wrap_for_column_by_header(ws: Any, header: str) -> None:
         )
 
 
+# =============================================================================
+# Обогащение листа _base_gsz: найденные холдинги и аналитика по ключам
+# =============================================================================
 def format_holding_entry(
     hold_row: dict[str, Any],
     holding_id_column: str,
@@ -1021,6 +1083,12 @@ def enrich_base_rows(
     holding_name_column: str,
     base_columns: tuple[OutputColumnSpec, ...],
 ) -> None:
+    """Обратная проекция: для каждой строки _base_gsz заполняет служебные колонки.
+
+    - holding_count — сколько холдингов сматчилось на эту строку;
+    - found_holding / found_holding_debug — список холдингов в формате [ID]: имя;
+    - key_string / key_length / key_repeat_count — аналитика по конкатенации ключей.
+    """
     base_by_key = output_columns_by_key(base_columns)
     col_holding_count = base_by_key["holding_count"].name
     col_found_holding = base_by_key["found_holding"].name
@@ -1029,6 +1097,7 @@ def enrich_base_rows(
     col_key_length = base_by_key["key_length"].name
     col_key_repeat = base_by_key["key_repeat_count"].name
 
+    # Первый проход: строка ключа и обратная проекция холдингов
     key_strings: list[str] = []
     for idx, row in enumerate(base_rows):
         parts: list[str] = []
@@ -1058,6 +1127,7 @@ def enrich_base_rows(
         row[col_key_string] = key_str
         row[col_key_length] = len(key_str)
 
+    # Второй проход: число повторов одинаковой строки ключа по всему справочнику
     freq: dict[str, int] = {}
     for ks in key_strings:
         if ks:
@@ -1076,9 +1146,11 @@ def write_output_xlsx(
     base_sheet: str,
     format_cfg: dict[str, Any] | None = None,
 ) -> None:
+    """Создаёт книгу с двумя листами (холдинги + справочник) и применяет output_format."""
     from openpyxl import Workbook
 
     wb = Workbook()
+    # Лист 1: холдинги с колонками условное ГСЗ / отладка / кол-во
     ws1 = wb.active
     ws1.title = holding_sheet[:31] if holding_sheet else "HOLD_OD"
     write_sheet(ws1, holding_rows)
@@ -1098,6 +1170,7 @@ def write_output_xlsx(
     )
     apply_output_column_specs(ws1, holding_columns, min_width_all)
 
+    # Лист 2: справочник _base_gsz с обратной проекцией найденных холдингов
     ws2 = wb.create_sheet(title=base_sheet[:31] if base_sheet else "base_gsz")
     write_sheet(ws2, base_rows)
     apply_sheet_formatting(
@@ -1115,6 +1188,9 @@ def write_output_xlsx(
     wb.save(output_path)
 
 
+# =============================================================================
+# Параллельная обработка батчей холдингов
+# =============================================================================
 def chunked(seq: list[Any], size: int) -> list[list[Any]]:
     if size <= 0:
         size = 1
@@ -1124,6 +1200,11 @@ def chunked(seq: list[Any], size: int) -> list[list[Any]]:
 def match_holding_batch(
     indexed_text_batch: list[tuple[int, Any]],
 ) -> tuple[list[tuple[str, str, int]], dict[int, list[int]]]:
+    """Обработка батча холдингов в одном воркере.
+
+    Возвращает результаты по холдингам и обратную проекцию:
+    base_idx → список индексов холдингов, сматчившихся на эту строку справочника.
+    """
     rows_out: list[tuple[str, str, int]] = []
     row_holding_indices: dict[int, list[int]] = {}
     for hold_idx, value in indexed_text_batch:
@@ -1343,7 +1424,11 @@ def with_timestamp_suffix(path: Path, pattern: str = "%Y%m%d_%H%M%S") -> Path:
     return path.with_name(f"{path.name}_{ts}")
 
 
+# =============================================================================
+# main: чтение → сопоставление → обогащение → запись Excel
+# =============================================================================
 def main() -> None:
+    """Точка входа CLI: config → чтение Excel → сопоставление → запись результата."""
     configure_unbuffered_console_output()
     parser = make_arg_parser()
     args = parser.parse_args()
@@ -1406,6 +1491,7 @@ def main() -> None:
                     "[diag-warning] Найдено имя как Defined Name, но не как Smart Table. "
                     "Скрипт читает только Smart Table (ListObject)."
                 )
+    # --- Этап 1: чтение смарт-таблиц из входной книги ---
     if settings["log_stages"]:
         log(f"[stage] Чтение таблицы {settings['holding_table']}...")
     hold_rows = read_excel_table(
@@ -1445,6 +1531,7 @@ def main() -> None:
         f"таблице {settings['base_table']}",
     )
 
+    # --- Этап 2: предобработка справочника (токены, якорь, non) один раз ---
     if settings["log_stages"]:
         log("[stage] Подготовка метаданных справочника...")
     metas_list: list[BaseMeta] = []
@@ -1487,6 +1574,7 @@ def main() -> None:
     indexed_holding_texts = list(enumerate(holding_texts))
     batches = chunked(indexed_holding_texts, work_batch_size)
 
+    # --- Этап 3: параллельное сопоставление холдингов батчами ---
     if settings["log_stages"]:
         log(
             f"[stage] Старт сопоставления: workers={workers}, work_batch={work_batch_size}, "
@@ -1569,6 +1657,7 @@ def main() -> None:
                         next_progress += progress_every
                 next_idx_to_flush += 1
 
+    # --- Этап 4: заполнение выходных колонок на обоих листах ---
     output_format = settings["output_format"]
     holding_by_key = output_columns_by_key(output_format["holding_columns"])
     for row, res in zip(hold_rows, results):
@@ -1591,6 +1680,7 @@ def main() -> None:
         base_columns=output_format["base_columns"],
     )
 
+    # --- Этап 5: запись Excel с форматированием из output_format ---
     if settings["log_stages"]:
         log("[stage] Запись результата в Excel...")
     write_output_xlsx(

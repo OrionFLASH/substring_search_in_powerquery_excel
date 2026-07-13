@@ -35,7 +35,8 @@ substring_search_in_powerquery_excel/
 ├── src/
 │   ├── PowerQuery/
 │   │   ├── _HOLD_OD_GSZ.pq            # Базовый M-скрипт запроса
-│   │   └── _HOLD_OD_GSZ_FAST.pq       # Ускоренная версия для больших объемов
+│   │   ├── _HOLD_OD_GSZ_FAST.pq       # Ускоренная версия для больших объемов
+│   │   └── _HOLD_OD_GSZ_FAST_V2.pq    # V2: non-ключи + универсальные колонки
 │   ├── generate_gsz_keys.py           # Генератор ключей → Excel (локально)
 │   ├── gsz_matcher_parallel.py        # Python-сопоставление (параллельно)
 │   └── Tests/
@@ -91,11 +92,12 @@ substring_search_in_powerquery_excel/
 2. **Данные** → **Создать запрос** → **Пустой запрос**.
 3. **Расширенный редактор** → вставьте код из:
    - `src/PowerQuery/_HOLD_OD_GSZ.pq` (базовая версия), или
-   - `src/PowerQuery/_HOLD_OD_GSZ_FAST.pq` (рекомендуется для больших объемов, например 44k+ холдингов).
+   - `src/PowerQuery/_HOLD_OD_GSZ_FAST.pq` (ускоренная, без `non`), или
+   - `src/PowerQuery/_HOLD_OD_GSZ_FAST_V2.pq` (рекомендуется: `non`-ключи + универсальное число колонок).
 4. **Готово** → загрузите как подключение или на новый лист.
 5. Переименуйте запрос в:
    - **`_HOLD_OD_GSZ`** для базовой версии, или
-   - **`_HOLD_OD_GSZ_FAST`** для ускоренной версии.
+   - **`_HOLD_OD_GSZ_FAST`** / **`_HOLD_OD_GSZ_FAST_V2`** для ускоренных версий.
 
 ## Ускоренная версия `_HOLD_OD_GSZ_FAST`
 
@@ -109,6 +111,23 @@ substring_search_in_powerquery_excel/
 4. Поиск `full`-вхождений использует `Text.PositionOf(..., Occurrence.All)`, а не посимвольный перебор стартовых позиций.
 
 Для больших наборов данных ускоренная версия обычно работает заметно быстрее базовой.
+
+## Ускоренная версия V2 `_HOLD_OD_GSZ_FAST_V2`
+
+Файл: `src/PowerQuery/_HOLD_OD_GSZ_FAST_V2.pq`
+
+Отличия от `_HOLD_OD_GSZ_FAST`:
+
+1. Поддержка исключающих ключей `key_and_non_*` и `key_or_non_*` (логика как в Python-матчере).
+2. Универсальное число колонок ключей: автоматически подхватываются все заголовки вида `key_<группа>_<N>` из `_base_gsz`.
+3. Сортировка колонок по суффиксу `_N` (например, `_1`, `_2`, `_10`).
+4. Можно зафиксировать списки вручную через переменные `Колонки_*_явно` в начале запроса (если список не пустой — автоопределение отключается для этой группы).
+
+Логика `non`:
+
+- `and_non` — исключение, если в названии холдинга (без пробелов) найдены **все** non-ключи;
+- `or_non` — исключение, если найден **хотя бы один** non-ключ;
+- пример: non-ключ `ммб` исключает и `ну пикммб`, и `ну пик ммб`.
 
 ## Python-вариант (полный перенос логики + параллелизация)
 
@@ -174,10 +193,10 @@ python3 src/gsz_matcher_parallel.py \
     "gsz_column": "Наименование, регион",
     "and_full_cols": ["key_and_full_1", "key_and_full_2", "key_and_full_3"],
     "and_not_cols": ["key_and_not_1", "key_and_not_2", "key_and_not_3"],
-    "and_non_cols": ["key_and_non_1", "key_and_non_2", "key_and_non_3"],
+    "and_non_cols": ["key_and_non_1", "key_and_non_2"],
     "or_full_cols": ["key_or_full_1", "key_or_full_2", "key_or_full_3"],
     "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
-    "or_non_cols": ["key_or_non_1", "key_or_non_2", "key_or_non_3"],
+    "or_non_cols": ["key_or_non_1", "key_or_non_2"],
     "workers": 8,
     "work_batch_size": 30,
     "log_stages": true,
@@ -419,3 +438,4 @@ python3 src/generate_gsz_keys.py
 | 1.6 | 2026-07-13 | На лист `_base_gsz` добавлены `найденный холдинг` и `Отладка_найденного_холдинга` с форматом `[ID]: холдинг` |
 | 1.7 | 2026-07-13 | `output_format` переведен на ключи типов данных для добавляемых колонок (`key -> name/width/wrap`) |
 | 1.8 | 2026-07-13 | Добавлены исключающие ключи `key_and_non_*` и `key_or_non_*` в Python-матчере и конфиге |
+| 1.9 | 2026-07-13 | Добавлен Power Query `_HOLD_OD_GSZ_FAST_V2` с `non`-ключами и автоопределением колонок |
