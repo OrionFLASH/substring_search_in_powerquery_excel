@@ -37,6 +37,15 @@ DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
 DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
 DEFAULT_OR_FULL = ["key_or_full_1", "key_or_full_2", "key_or_full_3"]
 DEFAULT_OR_NOT = ["key_or_not_1", "key_or_not_2", "key_or_not_3"]
+DEFAULT_HOLDING_ID_COLUMN = "ID холдинга"
+BASE_ENRICHMENT_COLUMNS = [
+    "кол-во холдингов",
+    "найденный холдинг",
+    "Отладка_найденного_холдинга",
+    "строка ключа",
+    "длина ключа",
+    "число повторов",
+]
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 
 
@@ -596,10 +605,78 @@ def apply_wrap_for_column_by_header(ws: Any, header: str) -> None:
         )
 
 
+def format_holding_entry(
+    hold_row: dict[str, Any],
+    holding_id_column: str,
+    holding_name_column: str,
+    with_trailing_semicolon: bool = False,
+) -> str:
+    """Форматирование холдинга как [ID]: наименование."""
+    holding_id = hold_row.get(holding_id_column, "")
+    holding_name = hold_row.get(holding_name_column, "")
+    if holding_id is None:
+        holding_id = ""
+    if holding_name is None:
+        holding_name = ""
+    entry = f"[{holding_id}]: {holding_name}"
+    if with_trailing_semicolon:
+        entry += ";"
+    return entry
+
+
+def build_base_holding_match_columns(
+    matched_holding_indices: list[int],
+    hold_rows: list[dict[str, Any]],
+    holding_id_column: str,
+    holding_name_column: str,
+) -> tuple[str, str]:
+    """Итоговые колонки «найденный холдинг» и «Отладка_найденного_холдинга»."""
+    entries: list[str] = []
+    for hold_idx in matched_holding_indices:
+        if 0 <= hold_idx < len(hold_rows):
+            entries.append(
+                format_holding_entry(
+                    hold_rows[hold_idx],
+                    holding_id_column=holding_id_column,
+                    holding_name_column=holding_name_column,
+                    with_trailing_semicolon=False,
+                )
+            )
+
+    if not entries:
+        return "-", "-"
+
+    count = len(entries)
+    debug_lines = [
+        format_holding_entry(
+            hold_rows[hold_idx],
+            holding_id_column=holding_id_column,
+            holding_name_column=holding_name_column,
+            with_trailing_semicolon=True,
+        )
+        for hold_idx in matched_holding_indices
+        if 0 <= hold_idx < len(hold_rows)
+    ]
+    debug_text = "\n".join(debug_lines)
+    primary = "есть пересечения по ключам" if count > 1 else entries[0]
+    return primary, debug_text
+
+
+def reorder_base_row_columns(row: dict[str, Any]) -> dict[str, Any]:
+    """Служебные колонки _base_gsz — сразу после исходных, в фиксированном порядке."""
+    original_keys = [key for key in row.keys() if key not in BASE_ENRICHMENT_COLUMNS]
+    ordered_keys = original_keys + [key for key in BASE_ENRICHMENT_COLUMNS if key in row]
+    return {key: row[key] for key in ordered_keys}
+
+
 def enrich_base_rows(
     base_rows: list[dict[str, Any]],
     all_key_cols: list[str],
     per_row_holding_counts: list[int],
+    per_row_matched_holding_indices: list[list[int]],
+    hold_rows: list[dict[str, Any]],
+    holding_id_column: str,
+    holding_name_column: str,
 ) -> None:
     key_strings: list[str] = []
     for idx, row in enumerate(base_rows):
@@ -612,7 +689,21 @@ def enrich_base_rows(
         key_str = "_".join(parts)
         key_strings.append(key_str)
 
+        matched_indices = (
+            per_row_matched_holding_indices[idx]
+            if idx < len(per_row_matched_holding_indices)
+            else []
+        )
+        found_primary, found_debug = build_base_holding_match_columns(
+            matched_holding_indices=matched_indices,
+            hold_rows=hold_rows,
+            holding_id_column=holding_id_column,
+            holding_name_column=holding_name_column,
+        )
+
         row["кол-во холдингов"] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
+        row["найденный холдинг"] = found_primary
+        row["Отладка_найденного_холдинга"] = found_debug
         row["строка ключа"] = key_str
         row["длина ключа"] = len(key_str)
 
@@ -623,6 +714,7 @@ def enrich_base_rows(
     for idx, row in enumerate(base_rows):
         ks = key_strings[idx]
         row["число повторов"] = freq.get(ks, 0) if ks else 0
+        base_rows[idx] = reorder_base_row_columns(row)
 
 
 def write_output_xlsx(
@@ -667,6 +759,18 @@ def write_output_xlsx(
         format_data_vertical_center=bool(format_cfg.get("format_data_vertical_center", True)),
     )
     apply_min_column_widths(ws2, float(format_cfg.get("min_width_all", 100)))
+    apply_column_min_width_by_header(
+        ws2,
+        "найденный холдинг",
+        float(format_cfg.get("base_found_holding_min_width", format_cfg.get("holding_gsz_min_width", 250))),
+    )
+    apply_column_min_width_by_header(
+        ws2,
+        "Отладка_найденного_холдинга",
+        float(format_cfg.get("base_found_holding_debug_min_width", format_cfg.get("holding_debug_min_width", 250))),
+    )
+    if bool(format_cfg.get("base_found_holding_debug_wrap", format_cfg.get("holding_debug_wrap", True))):
+        apply_wrap_for_column_by_header(ws2, "Отладка_найденного_холдинга")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
@@ -678,15 +782,17 @@ def chunked(seq: list[Any], size: int) -> list[list[Any]]:
     return [seq[i : i + size] for i in range(0, len(seq), size)]
 
 
-def match_holding_batch(text_batch: list[Any]) -> tuple[list[tuple[str, str, int]], dict[int, int]]:
+def match_holding_batch(
+    indexed_text_batch: list[tuple[int, Any]],
+) -> tuple[list[tuple[str, str, int]], dict[int, list[int]]]:
     rows_out: list[tuple[str, str, int]] = []
-    row_holding_counts: dict[int, int] = {}
-    for value in text_batch:
+    row_holding_indices: dict[int, list[int]] = {}
+    for hold_idx, value in indexed_text_batch:
         primary, debug_text, match_count, matched_indices = match_single_holding(value)
         rows_out.append((primary, debug_text, match_count))
-        for idx in matched_indices:
-            row_holding_counts[idx] = row_holding_counts.get(idx, 0) + 1
-    return rows_out, row_holding_counts
+        for base_idx in matched_indices:
+            row_holding_indices.setdefault(base_idx, []).append(hold_idx)
+    return rows_out, row_holding_indices
 
 
 def short_text(value: Any, max_len: int = 80) -> str:
@@ -773,6 +879,7 @@ def make_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--holding-table", help="Имя таблицы холдингов")
     p.add_argument("--base-table", help="Имя таблицы справочника ГСЗ")
     p.add_argument("--holding-column", help="Колонка с текстом холдинга")
+    p.add_argument("--holding-id-column", help="Колонка с ID холдинга")
     p.add_argument("--gsz-column", help="Колонка значения условного ГСЗ")
     p.add_argument("--and-full-cols", help="AND full колонки через запятую")
     p.add_argument("--and-not-cols", help="AND not колонки через запятую")
@@ -803,6 +910,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "holding_table": block.get("holding_table", "_HOLD_OD"),
         "base_table": block.get("base_table", "_base_gsz"),
         "holding_column": block.get("holding_column", "Холдинг"),
+        "holding_id_column": block.get("holding_id_column", DEFAULT_HOLDING_ID_COLUMN),
         "gsz_column": block.get("gsz_column", "Наименование, регион"),
         "and_full_cols": block.get("and_full_cols", DEFAULT_AND_FULL),
         "and_not_cols": block.get("and_not_cols", DEFAULT_AND_NOT),
@@ -835,6 +943,9 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
                 "holding_debug_min_width": 250,
                 "holding_gsz_min_width": 250,
                 "holding_debug_wrap": True,
+                "base_found_holding_min_width": 250,
+                "base_found_holding_debug_min_width": 250,
+                "base_found_holding_debug_wrap": True,
                 "format_data_vertical_center": True,
             },
         ),
@@ -855,6 +966,7 @@ def resolve_settings(args: argparse.Namespace) -> dict[str, Any]:
         "holding_table": args.holding_table,
         "base_table": args.base_table,
         "holding_column": args.holding_column,
+        "holding_id_column": args.holding_id_column,
         "gsz_column": args.gsz_column,
         "and_full_cols": args.and_full_cols,
         "and_not_cols": args.and_not_cols,
@@ -973,7 +1085,11 @@ def main() -> None:
 
     if settings["log_stages"]:
         log("[stage] Проверка обязательных колонок...")
-    ensure_columns(hold_rows, [settings["holding_column"]], f"таблице {settings['holding_table']}")
+    ensure_columns(
+        hold_rows,
+        [settings["holding_column"], settings["holding_id_column"]],
+        f"таблице {settings['holding_table']}",
+    )
     ensure_columns(
         base_rows,
         [settings["gsz_column"]] + and_full_cols + and_not_cols + or_full_cols + or_not_cols,
@@ -999,6 +1115,7 @@ def main() -> None:
             log(f"[progress-base] {idx}/{len(base_rows)}")
     metas = tuple(metas_list)
     base_holding_counts = [0] * len(base_rows)
+    base_matched_holding_indices: list[list[int]] = [[] for _ in base_rows]
 
     total_holdings = len(hold_rows)
     total_base = len(base_rows)
@@ -1016,7 +1133,8 @@ def main() -> None:
     progress_every_batches = max(1, int(settings["progress_every_batches"]))
     workers = max(1, int(settings["workers"]))
     heartbeat_seconds = max(1, int(settings["heartbeat_seconds"]))
-    batches = chunked(holding_texts, work_batch_size)
+    indexed_holding_texts = list(enumerate(holding_texts))
+    batches = chunked(indexed_holding_texts, work_batch_size)
 
     if settings["log_stages"]:
         log(
@@ -1035,7 +1153,7 @@ def main() -> None:
         initargs=(metas,),
     ) as ex:
         future_to_idx = {ex.submit(match_holding_batch, b): i for i, b in enumerate(batches)}
-        ordered_batches: dict[int, tuple[list[tuple[str, str, int]], dict[int, int]]] = {}
+        ordered_batches: dict[int, tuple[list[tuple[str, str, int]], dict[int, list[int]]]] = {}
         next_idx_to_flush = 0
         completed_batches = 0
         next_batch_progress = progress_every_batches
@@ -1075,12 +1193,13 @@ def main() -> None:
                         next_batch_progress += progress_every_batches
 
             while next_idx_to_flush in ordered_batches:
-                batch_result, batch_counts = ordered_batches.pop(next_idx_to_flush)
+                batch_result, batch_holding_indices = ordered_batches.pop(next_idx_to_flush)
                 results.extend(batch_result)
                 processed += len(batch_result)
-                for row_idx, cnt in batch_counts.items():
+                for row_idx, hold_indices in batch_holding_indices.items():
                     if 0 <= row_idx < len(base_holding_counts):
-                        base_holding_counts[row_idx] += cnt
+                        base_holding_counts[row_idx] += len(hold_indices)
+                        base_matched_holding_indices[row_idx].extend(hold_indices)
 
                 if processed >= next_progress or processed == total_holdings:
                     log(
@@ -1105,7 +1224,15 @@ def main() -> None:
         row["Кол-во совпадений"] = res[2]
 
     all_key_cols = and_full_cols + and_not_cols + or_full_cols + or_not_cols
-    enrich_base_rows(base_rows, all_key_cols=all_key_cols, per_row_holding_counts=base_holding_counts)
+    enrich_base_rows(
+        base_rows,
+        all_key_cols=all_key_cols,
+        per_row_holding_counts=base_holding_counts,
+        per_row_matched_holding_indices=base_matched_holding_indices,
+        hold_rows=hold_rows,
+        holding_id_column=str(settings["holding_id_column"]),
+        holding_name_column=str(settings["holding_column"]),
+    )
 
     if settings["log_stages"]:
         log("[stage] Запись результата в Excel...")

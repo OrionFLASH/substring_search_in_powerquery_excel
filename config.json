@@ -12,6 +12,7 @@
     "holding_table": "_HOLD_OD",
     "base_table": "_base_gsz",
     "holding_column": "Холдинг",
+    "holding_id_column": "ID холдинга",
     "gsz_column": "Наименование, регион",
     "and_full_cols": [
       "key_and_full_1",
@@ -58,6 +59,9 @@
       "holding_debug_min_width": 100,
       "holding_gsz_min_width": 150,
       "holding_debug_wrap": true,
+      "base_found_holding_min_width": 150,
+      "base_found_holding_debug_min_width": 100,
+      "base_found_holding_debug_wrap": true,
       "format_data_vertical_center": true
     }
   }

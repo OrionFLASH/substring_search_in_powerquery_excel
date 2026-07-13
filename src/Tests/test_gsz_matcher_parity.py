@@ -15,14 +15,18 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from gsz_matcher_parallel import (  # noqa: E402
+    BASE_ENRICHMENT_COLUMNS,
     DEFAULT_AND_FULL,
     DEFAULT_AND_NOT,
     DEFAULT_OR_FULL,
     DEFAULT_OR_NOT,
+    build_base_holding_match_columns,
     build_meta_row,
+    enrich_base_rows,
     match_single_holding,
     match_single_holding_brute,
     read_excel_table,
+    reorder_base_row_columns,
     worker_init,
 )
 
@@ -77,6 +81,68 @@ class TestGszMatcherParity(unittest.TestCase):
                 f"Расхождений fast vs brute: {len(mismatches)}+; "
                 f"пример idx={sample[0]} text={sample[1]!r} fast={sample[2]} brute={sample[3]}"
             )
+
+
+class TestBaseHoldingColumns(unittest.TestCase):
+    def test_build_base_holding_match_columns_single(self) -> None:
+        hold_rows = [
+            {"ID холдинга": 101, "Холдинг": "ГК ПИК"},
+            {"ID холдинга": 202, "Холдинг": "Самолет"},
+        ]
+        primary, debug = build_base_holding_match_columns(
+            matched_holding_indices=[0],
+            hold_rows=hold_rows,
+            holding_id_column="ID холдинга",
+            holding_name_column="Холдинг",
+        )
+        self.assertEqual(primary, "[101]: ГК ПИК")
+        self.assertEqual(debug, "[101]: ГК ПИК;")
+
+    def test_build_base_holding_match_columns_multiple(self) -> None:
+        hold_rows = [
+            {"ID холдинга": 101, "Холдинг": "ГК ПИК"},
+            {"ID холдинга": 202, "Холдинг": "Самолет"},
+        ]
+        primary, debug = build_base_holding_match_columns(
+            matched_holding_indices=[0, 1],
+            hold_rows=hold_rows,
+            holding_id_column="ID холдинга",
+            holding_name_column="Холдинг",
+        )
+        self.assertEqual(primary, "есть пересечения по ключам")
+        self.assertEqual(debug, "[101]: ГК ПИК;\n[202]: Самолет;")
+
+    def test_enrich_base_rows_column_order(self) -> None:
+        base_rows = [{"Наименование, регион": "ПИК, Москва", "key_and_full_1": "пик"}]
+        hold_rows = [{"ID холдинга": 7, "Холдинг": "ГК ПИК"}]
+        enrich_base_rows(
+            base_rows=base_rows,
+            all_key_cols=["key_and_full_1"],
+            per_row_holding_counts=[1],
+            per_row_matched_holding_indices=[[0]],
+            hold_rows=hold_rows,
+            holding_id_column="ID холдинга",
+            holding_name_column="Холдинг",
+        )
+        self.assertEqual(list(base_rows[0].keys())[-len(BASE_ENRICHMENT_COLUMNS) :], BASE_ENRICHMENT_COLUMNS)
+        self.assertEqual(base_rows[0]["найденный холдинг"], "[7]: ГК ПИК")
+        self.assertEqual(base_rows[0]["Отладка_найденного_холдинга"], "[7]: ГК ПИК;")
+
+    def test_reorder_base_row_columns(self) -> None:
+        row = {
+            "Наименование, регион": "X",
+            "число повторов": 1,
+            "кол-во холдингов": 2,
+            "найденный холдинг": "a",
+            "Отладка_найденного_холдинга": "b",
+            "строка ключа": "k",
+            "длина ключа": 1,
+        }
+        ordered = reorder_base_row_columns(row)
+        self.assertEqual(
+            list(ordered.keys()),
+            ["Наименование, регион", *BASE_ENRICHMENT_COLUMNS],
+        )
 
 
 if __name__ == "__main__":
