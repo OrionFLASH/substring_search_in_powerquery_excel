@@ -5,7 +5,7 @@
   "short_token_not_max_len": 5,
   "common_token_threshold": 80,
   "gsz_matcher_parallel": {
-    "input_xlsx": "input/workbook.xlsx",
+    "input_xlsx": "input/Tables+Holding.xlsx",
     "output_xlsx": "output/hold_od_gsz_python.xlsx",
     "output_add_timestamp": true,
     "output_timestamp_format": "%Y%m%d_%H%M%S",
@@ -59,16 +59,16 @@
       "format_data_vertical_center": true,
       "holding_sheet": {
         "columns": {
-          "gsz_primary": {"name": "условное ГСЗ", "width": 150},
-          "gsz_debug": {"name": "Отладка_совпадения_ГСЗ", "width": 100, "wrap": true},
+          "gsz_primary": {"name": "Бренд", "width": 100},
+          "gsz_debug": {"name": "Отладка_совпадения_Бренд", "width": 150, "wrap": true},
           "match_count": {"name": "Кол-во совпадений", "width": 30}
         }
       },
       "base_sheet": {
         "columns": {
           "holding_count": {"name": "кол-во холдингов", "width": 30},
-          "found_holding": {"name": "найденный холдинг", "width": 150},
-          "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 100, "wrap": true},
+          "found_holding": {"name": "найденный холдинг", "width": 100},
+          "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 150, "wrap": true},
           "key_string": {"name": "строка ключа", "width": 30},
           "key_length": {"name": "длина ключа", "width": 30},
           "key_repeat_count": {"name": "число повторов", "width": 30}
