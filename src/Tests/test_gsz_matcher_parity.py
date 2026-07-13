@@ -183,7 +183,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
             holding_name_column="Холдинг",
             texts=DEFAULT_MATCH_STATUS_TEXTS,
         )
-        self.assertEqual(primary, "=>")
+        self.assertEqual(primary, ":=>")
         self.assertEqual(debug, "[101]: ГК ПИК;\n[202]: Самолет;")
 
     def test_enrich_base_rows_column_order(self) -> None:
