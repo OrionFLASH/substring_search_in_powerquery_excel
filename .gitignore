@@ -6,6 +6,7 @@ LOGS/
 КейЛОАД.txt
 *.xlsx
 !input/workbook.xlsx
+!input/Tables+Holding.xlsx
 *.xlsm
 *.xls
 
