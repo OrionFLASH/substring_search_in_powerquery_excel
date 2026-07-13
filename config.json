@@ -12,6 +12,7 @@
     "holding_table": "_HOLD_OD",
     "base_table": "_base_gsz",
     "holding_column": "Холдинг",
+    "holding_id_column": "ID холдинга",
     "gsz_column": "Наименование, регион",
     "and_full_cols": [
       "key_and_full_1",
@@ -55,10 +56,24 @@
       "base_freeze_rows": 1,
       "base_freeze_cols": 3,
       "min_width_all": 30,
-      "holding_debug_min_width": 100,
-      "holding_gsz_min_width": 150,
-      "holding_debug_wrap": true,
-      "format_data_vertical_center": true
+      "format_data_vertical_center": true,
+      "holding_sheet": {
+        "columns": [
+          {"name": "условное ГСЗ", "width": 150},
+          {"name": "Отладка_совпадения_ГСЗ", "width": 100, "wrap": true},
+          {"name": "Кол-во совпадений", "width": 30}
+        ]
+      },
+      "base_sheet": {
+        "columns": [
+          {"name": "кол-во холдингов", "width": 30},
+          {"name": "найденный холдинг", "width": 150},
+          {"name": "Отладка_найденного_холдинга", "width": 100, "wrap": true},
+          {"name": "строка ключа", "width": 30},
+          {"name": "длина ключа", "width": 30},
+          {"name": "число повторов", "width": 30}
+        ]
+      }
     }
   }
 }
