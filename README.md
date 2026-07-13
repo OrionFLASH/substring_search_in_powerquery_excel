@@ -196,12 +196,26 @@ python3 src/gsz_matcher_parallel.py \
       "holding_freeze_rows": 1,
       "holding_freeze_cols": 3,
       "base_freeze_rows": 1,
-      "base_freeze_cols": 6,
-      "min_width_all": 100,
-      "holding_debug_min_width": 250,
-      "holding_gsz_min_width": 250,
-      "holding_debug_wrap": true,
-      "format_data_vertical_center": true
+      "base_freeze_cols": 3,
+      "min_width_all": 30,
+      "format_data_vertical_center": true,
+      "holding_sheet": {
+        "columns": {
+          "gsz_primary": {"name": "условное ГСЗ", "width": 150},
+          "gsz_debug": {"name": "Отладка_совпадения_ГСЗ", "width": 100, "wrap": true},
+          "match_count": {"name": "Кол-во совпадений", "width": 30}
+        }
+      },
+      "base_sheet": {
+        "columns": {
+          "holding_count": {"name": "кол-во холдингов", "width": 30},
+          "found_holding": {"name": "найденный холдинг", "width": 150},
+          "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 100, "wrap": true},
+          "key_string": {"name": "строка ключа", "width": 30},
+          "key_length": {"name": "длина ключа", "width": 30},
+          "key_repeat_count": {"name": "число повторов", "width": 30}
+        }
+      }
     }
   }
 }
@@ -272,10 +286,27 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 - закрепление на листе `_HOLD_OD` (`holding_freeze_rows`, `holding_freeze_cols`)
 - закрепление на листе `_base_gsz` (`base_freeze_rows`, `base_freeze_cols`) — для 1 строки и 3 колонок: `1` и `3` (ячейка `D2`)
 - минимальная ширина всех колонок (`min_width_all`)
-- минимальная ширина колонок `условное ГСЗ` и `Отладка_совпадения_ГСЗ`
-- перенос по всей колонке отладки (`holding_debug_wrap`)
+- общая минимальная ширина всех колонок (`min_width_all`)
+- добавляемые колонки задаются по **ключу типа данных** в `holding_sheet.columns` и `base_sheet.columns`:
+  - ключ фиксированный (например, `gsz_primary`, `found_holding_debug`)
+  - `name` — настраиваемый заголовок
+  - `width` — минимальная ширина колонки
+  - `wrap` — перенос строк (опционально)
 - вертикальное центрирование всех ячеек обоих листов (`format_data_vertical_center`, по умолчанию `true`; `false` ускоряет запись)
 - автофильтр включается для каждого листа по всей области данных
+
+Ключи для `holding_sheet.columns`:
+- `gsz_primary` — основное условное ГСЗ
+- `gsz_debug` — отладка совпадений ГСЗ
+- `match_count` — количество совпадений
+
+Ключи для `base_sheet.columns`:
+- `holding_count` — количество найденных холдингов
+- `found_holding` — основной найденный холдинг (`[ID]: холдинг`)
+- `found_holding_debug` — отладка найденных холдингов
+- `key_string` — строка ключа
+- `key_length` — длина строки ключа
+- `key_repeat_count` — число повторов строки ключа
 
 ### Регресс-тест (parity)
 
@@ -378,3 +409,5 @@ python3 src/generate_gsz_keys.py
 | 1.3 | 2026-07-08 | Добавлен ускоренный запрос `_HOLD_OD_GSZ_FAST` и обновлена документация |
 | 1.4 | 2026-07-08 | Обновлены доки: `КейЛОАД.txt` переведен в локальный артефакт (`.gitignore`) |
 | 1.5 | 2026-07-10 | Оптимизации Python-матчера: исправлен not-якорь, read_only, форматирование; тест parity; `work_batch_size` вместо `chunk_size` |
+| 1.6 | 2026-07-13 | На лист `_base_gsz` добавлены `найденный холдинг` и `Отладка_найденного_холдинга` с форматом `[ID]: холдинг` |
+| 1.7 | 2026-07-13 | `output_format` переведен на ключи типов данных для добавляемых колонок (`key -> name/width/wrap`) |
