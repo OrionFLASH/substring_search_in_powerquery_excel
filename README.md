@@ -174,8 +174,10 @@ python3 src/gsz_matcher_parallel.py \
     "gsz_column": "Наименование, регион",
     "and_full_cols": ["key_and_full_1", "key_and_full_2", "key_and_full_3"],
     "and_not_cols": ["key_and_not_1", "key_and_not_2", "key_and_not_3"],
+    "and_non_cols": ["key_and_non_1", "key_and_non_2", "key_and_non_3"],
     "or_full_cols": ["key_or_full_1", "key_or_full_2", "key_or_full_3"],
     "or_not_cols": ["key_or_not_1", "key_or_not_2", "key_or_not_3"],
+    "or_non_cols": ["key_or_non_1", "key_or_non_2", "key_or_non_3"],
     "workers": 8,
     "work_batch_size": 30,
     "log_stages": true,
@@ -278,6 +280,11 @@ python3 src/gsz_matcher_parallel.py --config-json "path/to/config.json"
 - `строка ключа` — сцепка непустых ключей через `_`;
 - `длина ключа` — число символов в `строке ключа`;
 - `число повторов` — сколько раз такая же `строка ключа` встречается в `_base_gsz`.
+
+Исключающие ключи в `_base_gsz`:
+- `key_and_non_*` — исключение с логикой AND: строка исключается только если найдены **все** non-ключи;
+- `key_or_non_*` — исключение с логикой OR: строка исключается, если найден **хотя бы один** non-ключ;
+- проверка non выполняется по названию холдинга **без пробелов** (например, `ММБ` исключает и `ну пикммб`, и `ну пик ММБ`).
 
 Форматирование выходных листов управляется через `output_format`:
 - заголовки по центру (`header_center`)
@@ -411,3 +418,4 @@ python3 src/generate_gsz_keys.py
 | 1.5 | 2026-07-10 | Оптимизации Python-матчера: исправлен not-якорь, read_only, форматирование; тест parity; `work_batch_size` вместо `chunk_size` |
 | 1.6 | 2026-07-13 | На лист `_base_gsz` добавлены `найденный холдинг` и `Отладка_найденного_холдинга` с форматом `[ID]: холдинг` |
 | 1.7 | 2026-07-13 | `output_format` переведен на ключи типов данных для добавляемых колонок (`key -> name/width/wrap`) |
+| 1.8 | 2026-07-13 | Добавлены исключающие ключи `key_and_non_*` и `key_or_non_*` в Python-матчере и конфиге |
