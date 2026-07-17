@@ -290,7 +290,7 @@ class TestBaseHoldingColumns(unittest.TestCase):
 
 
 class TestOrPrefilterAnchors(unittest.TestCase):
-    """Регресс: OR-only с латиницей+кириллицей не должен теряться на предфильтре."""
+    """Регресс: предфильтр не отбрасывает ключи — все and/or full|not в индексе."""
 
     _EMPTY_AND = {
         "key_and_full_1": "",
@@ -338,7 +338,6 @@ class TestOrPrefilterAnchors(unittest.TestCase):
         )
         holding = "СЕВЕН САНС ДЕВЕЛОПМЕНТ"
         self.assertTrue(row_matches(holding, meta))
-        # Все OR-токены в предфильтре (не один латинский якорь)
         words = {t.word for t in meta.anchors}
         self.assertEqual(words, {"suns", "санс", "seven", "севен"})
 
@@ -349,10 +348,10 @@ class TestOrPrefilterAnchors(unittest.TestCase):
         self.assertEqual(fast.count, 1)
         self.assertEqual(fast.primary, "Seven Suns GSZ")
 
-    def test_and_still_uses_single_anchor(self) -> None:
+    def test_and_and_or_all_tokens_in_prefilter(self) -> None:
         meta = build_meta_row(
             row={
-                "Наименование, регион": "AND GSZ",
+                "Наименование, регион": "AND+OR GSZ",
                 "key_and_full_1": "санс",
                 "key_and_not_1": "севен",
                 "key_or_full_1": "suns",
@@ -366,10 +365,50 @@ class TestOrPrefilterAnchors(unittest.TestCase):
             or_not_cols=["key_or_not_1"],
             or_non_cols=[],
         )
-        # При AND предфильтр остаётся одним обязательным якорем (длиннейший not)
-        self.assertEqual(len(meta.anchors), 1)
-        self.assertEqual(meta.anchors[0].word, "севен")
-        self.assertFalse(meta.anchors[0].is_full)
+        words = {t.word for t in meta.anchors}
+        self.assertEqual(words, {"санс", "севен", "suns", "seven"})
+        # Кириллический холдинг: AND ок, OR (только латиница) — нет → не матч
+        self.assertFalse(row_matches("СЕВЕН САНС ДЕВЕЛОПМЕНТ", meta))
+        # Латиница+кириллица в тексте: AND (кириллица) + OR (латиница) — матч
+        holding = "SEVEN СЕВЕН САНС DEVELOPMENT"
+        self.assertTrue(row_matches(holding, meta))
+        worker_init((meta,), DEFAULT_MATCH_STATUS_TEXTS)
+        self.assertEqual(
+            match_single_holding("1", holding),
+            match_single_holding_brute("1", holding),
+        )
+
+    def test_and_only_latin_does_not_block_via_dropped_cyrillic_sibling(self) -> None:
+        """Раньше один AND-якорь (латиница) мог отбросить строку до проверки остальных ключей."""
+        meta = build_meta_row(
+            row={
+                "Наименование, регион": "AND multi",
+                "key_and_full_1": "Suns",
+                "key_and_full_2": "САНС",
+                "key_and_not_1": "Seven",
+                "key_and_not_2": "СЕВЕН",
+            },
+            gsz_col="Наименование, регион",
+            and_full_cols=["key_and_full_1", "key_and_full_2"],
+            and_not_cols=["key_and_not_1", "key_and_not_2"],
+            and_non_cols=[],
+            or_full_cols=[],
+            or_not_cols=[],
+            or_non_cols=[],
+        )
+        # Все четыре AND-ключа в предфильтре
+        self.assertEqual(
+            {t.word for t in meta.anchors},
+            {"suns", "санс", "seven", "севен"},
+        )
+        # Полная AND-логика: латиница+кириллица вместе — нет совпадения
+        self.assertFalse(row_matches("СЕВЕН САНС ДЕВЕЛОПМЕНТ", meta))
+        # Но кириллические токены всё же открывают кандидата (не «потеряны»)
+        worker_init((meta,), DEFAULT_MATCH_STATUS_TEXTS)
+        from gsz_matcher_parallel import candidate_indices_for_text, normalize_text
+
+        cands = candidate_indices_for_text(normalize_text("СЕВЕН САНС ДЕВЕЛОПМЕНТ"))
+        self.assertEqual(cands, [0])
 
 
 if __name__ == "__main__":

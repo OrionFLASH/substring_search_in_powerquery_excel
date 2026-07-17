@@ -17,7 +17,7 @@
 
 Оптимизации:
 - предобработка справочника один раз;
-- предфильтр кандидатов: для AND — один якорь; для только OR — все альтернативы;
+- предфильтр кандидатов по всем AND/OR-токенам (full/not), без отсечения ключей;
 - кэш позиций токенов в рамках одного холдинга;
 - ProcessPoolExecutor для параллельной обработки.
 """
@@ -45,7 +45,7 @@ from openpyxl.utils import get_column_letter
 # =============================================================================
 # Константы: группы колонок ключей и настройки по умолчанию
 # Списки можно переопределить в config.json (and_full_cols, and_non_cols и т.д.).
-# or_*_cols: при только OR все непустые токены идут в предфильтр (не один «лучший» якорь).
+# or_* / and_* cols: все непустые full/not-токены строки идут в предфильтр (ключи не отбрасываются).
 # =============================================================================
 DEFAULT_AND_FULL = ["key_and_full_1", "key_and_full_2", "key_and_full_3"]
 DEFAULT_AND_NOT = ["key_and_not_1", "key_and_not_2", "key_and_not_3"]
@@ -211,7 +211,7 @@ class BaseMeta:
     or_tokens: tuple[Token, ...]
     and_non_tokens: tuple[str, ...]  # исключение AND: все найдены → строка отклоняется
     or_non_tokens: tuple[str, ...]   # исключение OR: любой найден → строка отклоняется
-    anchors: tuple[Token, ...]  # токены предфильтра: 1 AND-якорь или все OR-альтернативы
+    anchors: tuple[Token, ...]  # все and/or full|not токены для предфильтра (без отсечения)
     fix_ids: tuple[str, ...] = ()  # ID холдингов из key_fix_id
     fix_mode: str = "none"  # none | resolved | fallback
 
@@ -379,31 +379,23 @@ def normalize_non_text(value: Any) -> str:
 
 
 def pick_best_anchor(tokens: list[Token]) -> Token | None:
-    """Самый длинный токен из группы — лучший якорь для предфильтра кандидатов."""
+    """Самый длинный токен из группы (вспомогательно; предфильтр больше не сужает до одного)."""
     if not tokens:
         return None
     return max(tokens, key=lambda t: len(t.word))
 
 
 def pick_prefilter_anchors(and_tokens: list[Token], or_tokens: list[Token]) -> tuple[Token, ...]:
-    """Токены предфильтра: для AND — один обязательный; для только OR — все альтернативы.
+    """Все AND/OR-токены строки для предфильтра — ключи не отбрасываются.
 
-    Один OR-якорь ломает кейсы вроде латиница+кириллица (Seven / СЕВЕН):
-    холдинг на другом алфавите отбрасывался до полной проверки OR.
+    Раньше брался один «якорь» (AND или OR): латиница Seven отсекала кириллический
+    холдинг, хотя СЕВЕН/САНС совпадали. Теперь в индекс попадают все full/not
+    из and_* и or_*; кандидат, если найден хотя бы один. Полная проверка
+    (AND → OR → non) по-прежнему применяет полную логику групп.
     """
-    and_not = [t for t in and_tokens if not t.is_full]
-    and_full = [t for t in and_tokens if t.is_full]
-    and_anchor = pick_best_anchor(and_not) or pick_best_anchor(and_full)
-    if and_anchor is not None:
-        return (and_anchor,)
-
-    if not or_tokens:
-        return ()
-
-    # Дедуп: одна и та же пара (слово, режим) не дублируется в индексе
     seen: set[tuple[str, bool]] = set()
     out: list[Token] = []
-    for token in or_tokens:
+    for token in list(and_tokens) + list(or_tokens):
         key = (token.word, token.is_full)
         if key in seen:
             continue
@@ -644,7 +636,7 @@ def worker_init(
         if not anchors:
             no_anchor.append(idx)
             continue
-        # AND: один обязательный якорь; OR-only: все альтернативы (любая открывает кандидата)
+        # Все AND/OR-токены строки: любая находка открывает кандидата (полная логика — дальше)
         for a in anchors:
             if a.is_full:
                 full_index.setdefault(a.word, []).append(idx)

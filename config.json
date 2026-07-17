@@ -44,7 +44,7 @@
       "key_or_non_2"
     ],
     "_docs": {
-      "prefilter": "AND: один якорь. Только OR: все токены из or_full_cols/or_not_cols (достаточно любого). Согласовано с PQ FAST/FAST_V2."
+      "prefilter": "Все непустые and_*/or_* токены (full и not) строки участвуют в предфильтре; кандидат при любом совпадении. Полная логика: AND → OR → non. Согласовано с PQ FAST/FAST_V2."
     },
     "fix_id_col": "key_fix_id",
     "match_status_texts": {
