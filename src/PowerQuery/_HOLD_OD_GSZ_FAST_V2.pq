@@ -27,7 +27,8 @@
 //
 // Оптимизации (как в Python-матчере):
 //   - справочник подготавливается один раз (List.Buffer);
-//   - якорный предфильтр кандидатов по самому длинному ключу строки.
+//   - предфильтр по всем AND/OR full|not-токенам (ключи не отбрасываются);
+//     кандидат, если сработал хотя бы один — далее полная логика AND→OR→non.
 // =============================================================================
 
 let
@@ -113,6 +114,7 @@ let
 
     // Явные списки колонок. Если список НЕ пустой — используется вместо автоопределения.
     // Пример override: Колонки_and_full_явно = {"key_and_full_1", "key_and_full_2", "key_and_full_4"}.
+    // or_* / and_* — все непустые full/not токены строки участвуют в предфильтре.
     Колонки_and_full_явно = {},
     Колонки_and_not_явно = {},
     Колонки_and_non_явно = {},
@@ -428,55 +430,14 @@ let
                 )
             ),
 
-    // ─── Выбрать "якорь" для быстрого предфильтра ──────────────────────────
-    // Приоритет: and_not → and_full → or_not → or_full; внутри группы — самый длинный ключ.
-    fnЛучшийЯкорь = (кандидаты as list) as any =>
-        if List.Count(кандидаты) = 0 then
-            null
-        else
-            let
-                сДлиной =
-                    List.Transform(
-                        кандидаты,
-                        (к) => [Word = к[Word], IsFull = к[IsFull], Len = Text.Length(к[Word])]
-                    ),
-                отсортированные =
-                    List.Sort(
-                        сДлиной,
-                        (a, b) =>
-                            if a[Len] > b[Len] then
-                                -1
-                            else if a[Len] < b[Len] then
-                                1
-                            else
-                                0
-                    )
-            in
-                if List.Count(отсортированные) = 0 then
-                    null
-                else
-                    [Word = отсортированные{0}[Word], IsFull = отсортированные{0}[IsFull]],
-
-    fnВыбратьЯкорь = (andТокены as list, orПары as list) as any =>
-        let
-            andNot = List.Select(andТокены, each _[IsFull] = false),
-            andFull = List.Select(andТокены, each _[IsFull] = true),
-            orNot = List.Select(orПары, each _[IsFull] = false),
-            orFull = List.Select(orПары, each _[IsFull] = true),
-            якорь =
-                if List.Count(andNot) > 0 then
-                    fnЛучшийЯкорь(andNot)
-                else if List.Count(andFull) > 0 then
-                    fnЛучшийЯкорь(andFull)
-                else if List.Count(orNot) > 0 then
-                    fnЛучшийЯкорь(orNot)
-                else
-                    fnЛучшийЯкорь(orFull)
-        in
-            якорь,
+    // ─── Токены предфильтра ────────────────────────────────────────────────
+    // Все AND и OR (full/not) — без отсечения до одного «якоря».
+    // Кандидат, если найден хотя бы один; полная логика AND→OR→non — в fnСтрокаGszСовпала.
+    fnВыбратьЯкоря = (andТокены as list, orПары as list) as list =>
+        andТокены & orПары,
 
     // ─── Подготовка справочника один раз ────────────────────────────────────
-    // Для каждой строки _base_gsz собираем токены, non-токены, флаг «есть ключи» и якорь.
+    // Для каждой строки _base_gsz собираем токены, non-токены, флаг «есть ключи» и якоря.
     fnПодготовитьСтрокуGsz = (строка as record) as record =>
         let
             andFullСырые =
@@ -546,7 +507,7 @@ let
                                     fnНормализоватьТекст(значение) <> ""
                     )
                 ),
-            якорь = fnВыбратьЯкорь(andТокены, orПары)
+            якоря = fnВыбратьЯкоря(andТокены, orПары)
         in
             [
                 Исходная = строка,
@@ -557,7 +518,7 @@ let
                 OrNonTokens = orNonТокены,
                 FixIds = fixIds,
                 FixMode = fixMode,
-                Anchor = якорь
+                Anchors = якоря
             ],
 
     Справочник_подготовленный_таблица =
@@ -588,15 +549,23 @@ let
             in
                 andОк and orОк and not andNonОтклонить and not orNonОтклонить,
 
-    // ─── Быстрый предфильтр по якорю ────────────────────────────────────────
-    // full-якорь: Text.Contains; not-якорь: слово есть в списке токенов холдинга.
-    fnКандидатПоЯкорю = (текст as text, слова as list, якорь as any) as logical =>
+    // ─── Быстрый предфильтр по всем AND/OR-токенам (достаточно одного) ─────
+    // full: Text.Contains; not: слово в списке токенов холдинга.
+    fnКандидатПоОдномуЯкорю = (текст as text, слова as list, якорь as any) as logical =>
         if якорь = null then
             true
         else if якорь[IsFull] then
             Text.Contains(текст, якорь[Word])
         else
             List.Contains(слова, якорь[Word]),
+
+    fnКандидатПоЯкорям = (текст as text, слова as list, якоря as list) as logical =>
+        if List.Count(якоря) = 0 then
+            true
+        else
+            List.AnyTrue(
+                List.Transform(якоря, each fnКандидатПоОдномуЯкорю(текст, слова, _))
+            ),
 
     // ─── Все совпадения для холдинга (fix-ID + ключи) ───────────────────────
     fnИмяGszИзMeta = (строкаMeta as record) as text =>
@@ -633,7 +602,7 @@ let
                     Справочник_подготовленный,
                     (строкаMeta) =>
                         (строкаMeta[FixMode] = "none" or строкаMeta[FixMode] = "fallback" or строкаMeta[FixMode] = "partial")
-                        and fnКандидатПоЯкорю(текст, слова, строкаMeta[Anchor])
+                        and fnКандидатПоЯкорям(текст, слова, строкаMeta[Anchors])
                 ),
 
             ключСтроки =

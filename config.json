@@ -43,6 +43,9 @@
       "key_or_non_1",
       "key_or_non_2"
     ],
+    "_docs": {
+      "prefilter": "Все непустые and_*/or_* токены (full и not) строки участвуют в предфильтре; кандидат при любом совпадении. Полная логика: AND → OR → non. Согласовано с PQ FAST/FAST_V2."
+    },
     "fix_id_col": "key_fix_id",
     "match_status_texts": {
       "none": "-",
