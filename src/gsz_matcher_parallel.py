@@ -6,7 +6,7 @@
 
 Основной поток:
 1. Чтение смарт-таблиц `_HOLD_OD` и `_base_gsz`.
-2. Подготовка метаданных справочника (ключи, якорь, non-исключения).
+2. Подготовка метаданных справочника (ключи, якоря предфильтра, non-исключения).
 3. Параллельное сопоставление каждого холдинга с кандидатами из справочника.
 4. Запись результата на два листа с настраиваемыми колонками.
 
@@ -210,7 +210,7 @@ class BaseMeta:
     or_tokens: tuple[Token, ...]
     and_non_tokens: tuple[str, ...]  # исключение AND: все найдены → строка отклоняется
     or_non_tokens: tuple[str, ...]   # исключение OR: любой найден → строка отклоняется
-    anchor: Token | None
+    anchors: tuple[Token, ...]  # токены предфильтра: 1 AND-якорь или все OR-альтернативы
     fix_ids: tuple[str, ...] = ()  # ID холдингов из key_fix_id
     fix_mode: str = "none"  # none | resolved | fallback
 
@@ -384,18 +384,37 @@ def pick_best_anchor(tokens: list[Token]) -> Token | None:
     return max(tokens, key=lambda t: len(t.word))
 
 
-def pick_anchor(and_tokens: list[Token], or_tokens: list[Token]) -> Token | None:
-    """Якорный токен для предфильтра: приоритет not, затем самый длинный."""
+def pick_prefilter_anchors(and_tokens: list[Token], or_tokens: list[Token]) -> tuple[Token, ...]:
+    """Токены предфильтра: для AND — один обязательный; для только OR — все альтернативы.
+
+    Один OR-якорь ломает кейсы вроде латиница+кириллица (Seven / СЕВЕН):
+    холдинг на другом алфавите отбрасывался до полной проверки OR.
+    """
     and_not = [t for t in and_tokens if not t.is_full]
     and_full = [t for t in and_tokens if t.is_full]
-    or_not = [t for t in or_tokens if not t.is_full]
-    or_full = [t for t in or_tokens if t.is_full]
-    return (
-        pick_best_anchor(and_not)
-        or pick_best_anchor(and_full)
-        or pick_best_anchor(or_not)
-        or pick_best_anchor(or_full)
-    )
+    and_anchor = pick_best_anchor(and_not) or pick_best_anchor(and_full)
+    if and_anchor is not None:
+        return (and_anchor,)
+
+    if not or_tokens:
+        return ()
+
+    # Дедуп: одна и та же пара (слово, режим) не дублируется в индексе
+    seen: set[tuple[str, bool]] = set()
+    out: list[Token] = []
+    for token in or_tokens:
+        key = (token.word, token.is_full)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(token)
+    return tuple(out)
+
+
+def pick_anchor(and_tokens: list[Token], or_tokens: list[Token]) -> Token | None:
+    """Обратная совместимость: первый токен предфильтра или None."""
+    anchors = pick_prefilter_anchors(and_tokens, or_tokens)
+    return anchors[0] if anchors else None
 
 
 def build_meta_row(
@@ -426,7 +445,7 @@ def build_meta_row(
     and_non_tokens = tuple(w for w in and_non_raw if w)
     or_non_tokens = tuple(w for w in or_non_raw if w)
     has_keys = bool(and_tokens or or_tokens or and_non_tokens or or_non_tokens)
-    anchor = pick_anchor(and_tokens, or_tokens)
+    anchors = pick_prefilter_anchors(and_tokens, or_tokens)
 
     gsz_value = str(row.get(gsz_col, "") or "").strip()
     return BaseMeta(
@@ -436,7 +455,7 @@ def build_meta_row(
         or_tokens=tuple(or_tokens),
         and_non_tokens=and_non_tokens,
         or_non_tokens=or_non_tokens,
-        anchor=anchor,
+        anchors=anchors,
         fix_ids=fix_ids,
         fix_mode=fix_mode,
     )
@@ -620,14 +639,16 @@ def worker_init(
         if meta.fix_mode in ("resolved", "partial"):
             for fid in meta.fix_ids:
                 fix_index.setdefault(fid, []).append(idx)
-        a = meta.anchor
-        if a is None:
+        anchors = meta.anchors
+        if not anchors:
             no_anchor.append(idx)
             continue
-        if a.is_full:
-            full_index.setdefault(a.word, []).append(idx)
-        else:
-            not_index.setdefault(a.word, []).append(idx)
+        # AND: один обязательный якорь; OR-only: все альтернативы (любая открывает кандидата)
+        for a in anchors:
+            if a.is_full:
+                full_index.setdefault(a.word, []).append(idx)
+            else:
+                not_index.setdefault(a.word, []).append(idx)
 
     FIX_INDICES_BY_HOLDING_ID = {k: tuple(v) for k, v in fix_index.items()}
 
@@ -1313,7 +1334,7 @@ def enrich_base_rows(
             holding_name_column=holding_name_column,
             texts=texts,
         )
-        meta = base_metas[idx] if idx < len(base_metas) else BaseMeta("", False, (), (), (), (), None)
+        meta = base_metas[idx] if idx < len(base_metas) else BaseMeta("", False, (), (), (), (), ())
         row_status = compute_base_row_status_lines(meta, matched_pairs, texts)
 
         row[col_holding_count] = per_row_holding_counts[idx] if idx < len(per_row_holding_counts) else 0
@@ -1734,7 +1755,7 @@ def main() -> None:
         f"таблице {settings['base_table']}",
     )
 
-    # --- Этап 2: предобработка справочника (токены, якорь, non, fix-ID) один раз ---
+    # --- Этап 2: предобработка справочника (токены, якоря, non, fix-ID) один раз ---
     holdings_id_set = frozenset(
         normalize_holding_id(r.get(settings["holding_id_column"]))
         for r in hold_rows

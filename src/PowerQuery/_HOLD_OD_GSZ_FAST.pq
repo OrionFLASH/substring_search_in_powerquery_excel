@@ -208,7 +208,10 @@ let
         in
             List.Count(orПары) = 0 or List.AnyTrue(результаты),
 
-    // ─── Выбрать "якорь" для быстрого предфильтра ──────────────────────────
+    // ─── Якоря предфильтра ─────────────────────────────────────────────────
+    // AND: один обязательный (самый длинный not, иначе full).
+    // Только OR: ВСЕ OR-токены — кандидат, если сработал хотя бы один
+    // (иначе латиница/кириллица вроде Seven/СЕВЕН ломает поиск).
     fnЛучшийЯкорь = (кандидаты as list) as any =>
         if List.Count(кандидаты) = 0 then
             null
@@ -236,23 +239,22 @@ let
                 else
                     [Word = отсортированные{0}[Word], IsFull = отсортированные{0}[IsFull]],
 
-    fnВыбратьЯкорь = (andТокены as list, orПары as list) as any =>
+    fnВыбратьЯкоря = (andТокены as list, orПары as list) as list =>
         let
             andNot = List.Select(andТокены, each _[IsFull] = false),
             andFull = List.Select(andТокены, each _[IsFull] = true),
-            orNot = List.Select(orПары, each _[IsFull] = false),
-            orFull = List.Select(orПары, each _[IsFull] = true),
-            якорь =
+            andЯкорь =
                 if List.Count(andNot) > 0 then
                     fnЛучшийЯкорь(andNot)
                 else if List.Count(andFull) > 0 then
                     fnЛучшийЯкорь(andFull)
-                else if List.Count(orNot) > 0 then
-                    fnЛучшийЯкорь(orNot)
                 else
-                    fnЛучшийЯкорь(orFull)
+                    null
         in
-            якорь,
+            if andЯкорь <> null then
+                {andЯкорь}
+            else
+                orПары,
 
     // ─── Подготовка справочника один раз ────────────────────────────────────
     fnПодготовитьСтрокуGsz = (строка as record) as record =>
@@ -299,14 +301,14 @@ let
                         (имя) => fnНормализоватьТекст(fnЗначениеПоля(строка, имя)) <> ""
                     )
                 ),
-            якорь = fnВыбратьЯкорь(andТокены, orПары)
+            якоря = fnВыбратьЯкоря(andТокены, orПары)
         in
             [
                 Исходная = строка,
                 ЕстьКлючи = естьКлючи,
                 AndTokens = andТокены,
                 OrPairs = orПары,
-                Anchor = якорь
+                Anchors = якоря
             ],
 
     Справочник_подготовленный_таблица =
@@ -332,14 +334,22 @@ let
             in
                 andОк and orОк,
 
-    // ─── Быстрый предфильтр по якорю ────────────────────────────────────────
-    fnКандидатПоЯкорю = (текст as text, слова as list, якорь as any) as logical =>
+    // ─── Быстрый предфильтр по якорям (OR: достаточно одного) ───────────────
+    fnКандидатПоОдномуЯкорю = (текст as text, слова as list, якорь as any) as logical =>
         if якорь = null then
             true
         else if якорь[IsFull] then
             Text.Contains(текст, якорь[Word])
         else
             List.Contains(слова, якорь[Word]),
+
+    fnКандидатПоЯкорям = (текст as text, слова as list, якоря as list) as logical =>
+        if List.Count(якоря) = 0 then
+            true
+        else
+            List.AnyTrue(
+                List.Transform(якоря, each fnКандидатПоОдномуЯкорю(текст, слова, _))
+            ),
 
     // ─── Все совпадения для холдинга ────────────────────────────────────────
     fnНайтиВсеGsz = (текстХолдинга as any) as list =>
@@ -350,7 +360,7 @@ let
             кандидаты =
                 List.Select(
                     Справочник_подготовленный,
-                    (строкаMeta) => fnКандидатПоЯкорю(текст, слова, строкаMeta[Anchor])
+                    (строкаMeta) => fnКандидатПоЯкорям(текст, слова, строкаMeta[Anchors])
                 ),
 
             подходящие =

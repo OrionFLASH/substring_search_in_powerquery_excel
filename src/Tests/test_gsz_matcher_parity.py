@@ -289,5 +289,88 @@ class TestBaseHoldingColumns(unittest.TestCase):
             )
 
 
+class TestOrPrefilterAnchors(unittest.TestCase):
+    """Регресс: OR-only с латиницей+кириллицей не должен теряться на предфильтре."""
+
+    _EMPTY_AND = {
+        "key_and_full_1": "",
+        "key_and_full_2": "",
+        "key_and_full_3": "",
+        "key_and_not_1": "",
+        "key_and_not_2": "",
+        "key_and_not_3": "",
+        "key_and_non_1": "",
+        "key_and_non_2": "",
+        "key_or_non_1": "",
+        "key_or_non_2": "",
+        "key_fix_id": "",
+    }
+
+    def _meta(self, **or_keys: str):
+        row = {
+            "Наименование, регион": "Seven Suns GSZ",
+            **self._EMPTY_AND,
+            "key_or_full_1": "",
+            "key_or_full_2": "",
+            "key_or_full_3": "",
+            "key_or_not_1": "",
+            "key_or_not_2": "",
+            "key_or_not_3": "",
+        }
+        row.update(or_keys)
+        return build_meta_row(
+            row=row,
+            gsz_col="Наименование, регион",
+            and_full_cols=["key_and_full_1", "key_and_full_2", "key_and_full_3"],
+            and_not_cols=["key_and_not_1", "key_and_not_2", "key_and_not_3"],
+            and_non_cols=["key_and_non_1", "key_and_non_2"],
+            or_full_cols=["key_or_full_1", "key_or_full_2", "key_or_full_3"],
+            or_not_cols=["key_or_not_1", "key_or_not_2", "key_or_not_3"],
+            or_non_cols=["key_or_non_1", "key_or_non_2"],
+        )
+
+    def test_or_only_latin_cyrillic_fast_equals_brute(self) -> None:
+        meta = self._meta(
+            key_or_full_1="Suns",
+            key_or_full_2="САНС",
+            key_or_not_1="Seven",
+            key_or_not_2="СЕВЕН",
+        )
+        holding = "СЕВЕН САНС ДЕВЕЛОПМЕНТ"
+        self.assertTrue(row_matches(holding, meta))
+        # Все OR-токены в предфильтре (не один латинский якорь)
+        words = {t.word for t in meta.anchors}
+        self.assertEqual(words, {"suns", "санс", "seven", "севен"})
+
+        worker_init((meta,), DEFAULT_MATCH_STATUS_TEXTS)
+        fast = match_single_holding("1", holding)
+        brute = match_single_holding_brute("1", holding)
+        self.assertEqual(fast, brute)
+        self.assertEqual(fast.count, 1)
+        self.assertEqual(fast.primary, "Seven Suns GSZ")
+
+    def test_and_still_uses_single_anchor(self) -> None:
+        meta = build_meta_row(
+            row={
+                "Наименование, регион": "AND GSZ",
+                "key_and_full_1": "санс",
+                "key_and_not_1": "севен",
+                "key_or_full_1": "suns",
+                "key_or_not_1": "seven",
+            },
+            gsz_col="Наименование, регион",
+            and_full_cols=["key_and_full_1"],
+            and_not_cols=["key_and_not_1"],
+            and_non_cols=[],
+            or_full_cols=["key_or_full_1"],
+            or_not_cols=["key_or_not_1"],
+            or_non_cols=[],
+        )
+        # При AND предфильтр остаётся одним обязательным якорем (длиннейший not)
+        self.assertEqual(len(meta.anchors), 1)
+        self.assertEqual(meta.anchors[0].word, "севен")
+        self.assertFalse(meta.anchors[0].is_full)
+
+
 if __name__ == "__main__":
     unittest.main()
