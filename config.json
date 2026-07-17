@@ -43,6 +43,9 @@
       "key_or_non_1",
       "key_or_non_2"
     ],
+    "_docs": {
+      "prefilter": "AND: один якорь. Только OR: все токены из or_full_cols/or_not_cols (достаточно любого). Согласовано с PQ FAST/FAST_V2."
+    },
     "fix_id_col": "key_fix_id",
     "match_status_texts": {
       "none": "-",
