@@ -115,7 +115,10 @@
     "output_columns": {
       "inn": "ИНН",
       "company_name": "Наименование",
-      "region_name": "Наименование, регион"
+      "region_name": "Наименование, регион",
+      "region_count": "Кол-во регионов",
+      "region_base_name": "Наименование без города",
+      "region_base_count": "Кол-во наименований без города"
     },
     "log_to_file": true,
     "logs_dir": "log",
@@ -125,19 +128,23 @@
       "header_center": true,
       "header_wrap": true,
       "freeze_rows": 1,
-      "freeze_cols": 3,
+      "freeze_cols": 1,
       "data_vertical_center": true,
       "data_horizontal": "left",
       "columns": {
         "inn": {"width": 30, "wrap": false},
-        "company_name": {"width": 150, "wrap": true},
-        "region_name": {"width": 150, "wrap": true}
+        "company_name": {"width": 70, "wrap": true},
+        "region_name": {"width": 100, "wrap": true},
+        "region_count": {"width": 10, "wrap": false, "align": "center"},
+        "region_base_name": {"width": 90, "wrap": true},
+        "region_base_count": {"width": 10, "wrap": false, "align": "center"}
       }
     },
     "_docs": {
       "purpose": "Разбор колонки «Компании группы (ЕРЗ)» таблицы _base_kg в список уникальных ИНН с агрегацией названий и регионов.",
       "parse": "Фрагменты вида «Название (ИНН 1234567890)» разделяются company_separators; ключевое слово inn_keyword настраивается.",
-      "aggregate": "Для одного ИНН разные названия и разные «Наименование, регион» склеиваются через multi_value_joiner (по умолчанию «;» + перенос строки)."
+      "aggregate": "Для одного ИНН разные названия и разные «Наименование, регион» склеиваются через multi_value_joiner (по умолчанию «;» + перенос строки).",
+      "region_base": "«Наименование без города» — уникальные части «Наименование, регион» до первой запятой; region_count / region_base_count — количества уникальных значений."
     }
   }
 }

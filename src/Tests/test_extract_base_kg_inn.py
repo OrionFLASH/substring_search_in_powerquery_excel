@@ -13,6 +13,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from extract_base_kg_inn import (
     агрегировать_по_инн,
+    имя_до_запятой,
     разобрать_компании_ерз,
     сохранить_результат,
 )
@@ -53,6 +54,21 @@ class TestParseCompaniesErz(unittest.TestCase):
         self.assertEqual(разобрать_компании_ерз("без скобок", "ИНН", [";"]), [])
 
 
+class TestNameBeforeComma(unittest.TestCase):
+    """Урезание «Наименование, регион» до части до запятой."""
+
+    def test_с_городом(self) -> None:
+        self.assertEqual(имя_до_запятой("ПИК, Москва"), "ПИК")
+        self.assertEqual(имя_до_запятой("ПИК, Иваново"), "ПИК")
+
+    def test_без_запятой(self) -> None:
+        self.assertEqual(имя_до_запятой("Самолет"), "Самолет")
+
+    def test_пусто(self) -> None:
+        self.assertEqual(имя_до_запятой(""), "")
+        self.assertEqual(имя_до_запятой("  , Москва"), "")
+
+
 class TestAggregateByInn(unittest.TestCase):
     """Агрегация уникальных ИНН."""
 
@@ -89,9 +105,45 @@ class TestAggregateByInn(unittest.TestCase):
         self.assertIn(";\n", by_inn["100"]["company_name"])
         self.assertIn("Группа А, Москва", by_inn["100"]["region_name"])
         self.assertIn("Группа А, СПб", by_inn["100"]["region_name"])
+        self.assertEqual(by_inn["100"]["region_count"], 2)
+        self.assertEqual(by_inn["100"]["region_base_name"], "Группа А")
+        self.assertEqual(by_inn["100"]["region_base_count"], 1)
 
         self.assertEqual(by_inn["200"]["company_name"], "АО Бета")
         self.assertEqual(by_inn["200"]["region_name"], "Группа Б, Казань")
+        self.assertEqual(by_inn["200"]["region_count"], 1)
+        self.assertEqual(by_inn["200"]["region_base_name"], "Группа Б")
+        self.assertEqual(by_inn["200"]["region_base_count"], 1)
+
+    def test_разные_имена_без_города(self) -> None:
+        rows = [
+            {
+                "Наименование, регион": "ПИК, Москва",
+                "Компании группы (ЕРЗ)": "ООО П (ИНН 1)",
+            },
+            {
+                "Наименование, регион": "ПИК, Иваново",
+                "Компании группы (ЕРЗ)": "ООО П (ИНН 1)",
+            },
+            {
+                "Наименование, регион": "Самолет, СПб",
+                "Компании группы (ЕРЗ)": "ООО П (ИНН 1)",
+            },
+        ]
+        out = агрегировать_по_инн(
+            rows=rows,
+            region_column="Наименование, регион",
+            companies_column="Компании группы (ЕРЗ)",
+            inn_keyword="ИНН",
+            separators=[";"],
+            joiner=";\n",
+        )
+        row = out[0]
+        self.assertEqual(row["region_count"], 3)
+        self.assertEqual(row["region_base_count"], 2)
+        self.assertIn("ПИК", row["region_base_name"])
+        self.assertIn("Самолет", row["region_base_name"])
+        self.assertIn(";\n", row["region_base_name"])
 
 
 class TestExcelOutputFormatting(unittest.TestCase):
@@ -103,6 +155,9 @@ class TestExcelOutputFormatting(unittest.TestCase):
                 "inn": "100",
                 "company_name": "АО Альфа;\nООО Альфа Трейд",
                 "region_name": "Группа А, Москва;\nГруппа А, СПб",
+                "region_count": 2,
+                "region_base_name": "Группа А",
+                "region_base_count": 1,
             }
         ]
         format_cfg = {
@@ -110,19 +165,25 @@ class TestExcelOutputFormatting(unittest.TestCase):
             "header_center": True,
             "header_wrap": True,
             "freeze_rows": 1,
-            "freeze_cols": 3,
+            "freeze_cols": 1,
             "data_vertical_center": True,
             "data_horizontal": "left",
             "columns": {
                 "inn": {"width": 30, "wrap": False},
-                "company_name": {"width": 150, "wrap": True},
-                "region_name": {"width": 150, "wrap": True},
+                "company_name": {"width": 70, "wrap": True},
+                "region_name": {"width": 100, "wrap": True},
+                "region_count": {"width": 10, "wrap": False, "align": "center"},
+                "region_base_name": {"width": 90, "wrap": True},
+                "region_base_count": {"width": 10, "wrap": False, "align": "center"},
             },
         }
         output_columns = {
             "inn": "ИНН",
             "company_name": "Наименование",
             "region_name": "Наименование, регион",
+            "region_count": "Кол-во регионов",
+            "region_base_name": "Наименование без города",
+            "region_base_count": "Кол-во наименований без города",
         }
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,6 +200,9 @@ class TestExcelOutputFormatting(unittest.TestCase):
             self.assertEqual(ws["A1"].value, "ИНН")
             self.assertEqual(ws["B1"].value, "Наименование")
             self.assertEqual(ws["C1"].value, "Наименование, регион")
+            self.assertEqual(ws["D1"].value, "Кол-во регионов")
+            self.assertEqual(ws["E1"].value, "Наименование без города")
+            self.assertEqual(ws["F1"].value, "Кол-во наименований без города")
             self.assertTrue(ws["A1"].font.bold)
             self.assertEqual(ws["A1"].alignment.horizontal, "center")
             self.assertEqual(ws["A1"].alignment.vertical, "center")
@@ -150,10 +214,20 @@ class TestExcelOutputFormatting(unittest.TestCase):
             self.assertFalse(bool(ws["A2"].alignment.wrap_text))
             self.assertTrue(ws["B2"].alignment.wrap_text)
 
+            self.assertEqual(ws["D2"].value, 2)
+            self.assertEqual(ws["D2"].alignment.horizontal, "center")
+            self.assertEqual(ws["D2"].alignment.vertical, "center")
+            self.assertEqual(ws["E2"].value, "Группа А")
+            self.assertEqual(ws["F2"].value, 1)
+            self.assertEqual(ws["F2"].alignment.horizontal, "center")
+
             self.assertEqual(ws.column_dimensions["A"].width, 30)
-            self.assertEqual(ws.column_dimensions["B"].width, 150)
-            self.assertEqual(ws.column_dimensions["C"].width, 150)
-            self.assertEqual(ws.freeze_panes, "D2")
+            self.assertEqual(ws.column_dimensions["B"].width, 70)
+            self.assertEqual(ws.column_dimensions["C"].width, 100)
+            self.assertEqual(ws.column_dimensions["D"].width, 10)
+            self.assertEqual(ws.column_dimensions["E"].width, 90)
+            self.assertEqual(ws.column_dimensions["F"].width, 10)
+            self.assertEqual(ws.freeze_panes, "B2")
             self.assertIsNotNone(ws.auto_filter.ref)
             wb.close()
 
@@ -202,8 +276,14 @@ class TestEndToEndSampleWorkbook(unittest.TestCase):
             by_inn = {r["inn"]: r for r in out}
             self.assertEqual(set(by_inn), {"1000000001", "1000000002"})
             self.assertEqual(by_inn["1000000001"]["company_name"], "АО 3-Й ТАКСОМОТОРНЫЙ ПАРК")
+            self.assertEqual(by_inn["1000000001"]["region_count"], 1)
+            self.assertEqual(by_inn["1000000001"]["region_base_name"], "Таксопарк")
             self.assertIn("АО ЖБИ-23", by_inn["1000000002"]["company_name"])
             self.assertIn("АО Новый", by_inn["1000000002"]["company_name"])
+            self.assertEqual(by_inn["1000000002"]["region_count"], 2)
+            self.assertEqual(by_inn["1000000002"]["region_base_count"], 2)
+            self.assertIn("Таксопарк", by_inn["1000000002"]["region_base_name"])
+            self.assertIn("ЖБИ", by_inn["1000000002"]["region_base_name"])
             self.assertIn("Таксопарк, Москва", by_inn["1000000002"]["region_name"])
             self.assertIn("ЖБИ, Казань", by_inn["1000000002"]["region_name"])
 
