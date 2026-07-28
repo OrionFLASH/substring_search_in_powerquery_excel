@@ -192,6 +192,26 @@ def разобрать_компании_ерз(
     return result
 
 
+def имя_до_запятой(region: str) -> str:
+    """Часть «Наименование, регион» до первой запятой (без города/доп. данных)."""
+    text = region.strip()
+    if not text:
+        return ""
+    if "," in text:
+        return text.split(",", 1)[0].strip()
+    return text
+
+
+OUTPUT_COLUMN_KEYS: list[str] = [
+    "inn",
+    "company_name",
+    "region_name",
+    "region_count",
+    "region_base_name",
+    "region_base_count",
+]
+
+
 def агрегировать_по_инн(
     rows: list[dict[str, Any]],
     region_column: str,
@@ -199,8 +219,8 @@ def агрегировать_по_инн(
     inn_keyword: str,
     separators: list[str],
     joiner: str,
-) -> list[dict[str, str]]:
-    """Собрать уникальные ИНН с агрегацией названий и регионов."""
+) -> list[dict[str, Any]]:
+    """Собрать уникальные ИНН с агрегацией названий, регионов и урезанных имён."""
     # inn -> OrderedDict имён / регионов (сохраняем порядок первого появления)
     names_by_inn: OrderedDict[str, OrderedDict[str, None]] = OrderedDict()
     regions_by_inn: OrderedDict[str, OrderedDict[str, None]] = OrderedDict()
@@ -218,13 +238,22 @@ def агрегировать_по_инн(
             if region:
                 regions_by_inn[inn][region] = None
 
-    out: list[dict[str, str]] = []
+    out: list[dict[str, Any]] = []
     for inn, names in names_by_inn.items():
+        regions = list(regions_by_inn[inn].keys())
+        base_names: OrderedDict[str, None] = OrderedDict()
+        for region in regions:
+            base = имя_до_запятой(region)
+            if base:
+                base_names[base] = None
         out.append(
             {
                 "inn": inn,
                 "company_name": joiner.join(names.keys()),
-                "region_name": joiner.join(regions_by_inn[inn].keys()),
+                "region_name": joiner.join(regions),
+                "region_count": len(regions),
+                "region_base_name": joiner.join(base_names.keys()),
+                "region_base_count": len(base_names),
             }
         )
     logger.info("Уникальных ИНН: %s (из %s строк источника)", len(out), len(rows))
@@ -243,9 +272,9 @@ def применить_форматирование(
     header_center = bool(format_cfg.get("header_center", True))
     header_wrap = bool(format_cfg.get("header_wrap", True))
     freeze_rows = max(0, int(format_cfg.get("freeze_rows", 1)))
-    freeze_cols = max(0, int(format_cfg.get("freeze_cols", 3)))
+    freeze_cols = max(0, int(format_cfg.get("freeze_cols", 1)))
     data_v_center = bool(format_cfg.get("data_vertical_center", True))
-    data_h = str(format_cfg.get("data_horizontal", "left"))
+    data_h_default = str(format_cfg.get("data_horizontal", "left"))
 
     if ws.max_row >= 1:
         for cell in ws[1]:
@@ -257,15 +286,16 @@ def применить_форматирование(
             if header_bold:
                 cell.font = Font(bold=True)
 
-    # Данные: вертикальный центр, по левому краю; wrap по спецификации колонки.
+    # Данные: вертикальный центр; горизонталь/wrap — из спецификации колонки.
     if ws.max_row >= 2:
         for col_idx, key in enumerate(column_keys, start=1):
             spec = column_specs.get(key, {})
-            wrap = bool(spec.get("wrap", key != "inn"))
+            wrap = bool(spec.get("wrap", key not in {"inn", "region_count", "region_base_count"}))
+            align_h = str(spec.get("align", data_h_default))
             for row_idx in range(2, ws.max_row + 1):
                 cell = ws.cell(row=row_idx, column=col_idx)
                 cell.alignment = Alignment(
-                    horizontal=data_h,
+                    horizontal=align_h,
                     vertical="center" if data_v_center else "bottom",
                     wrap_text=wrap,
                 )
@@ -276,23 +306,32 @@ def применить_форматирование(
     if freeze_rows > 0 or freeze_cols > 0:
         ws.freeze_panes = ws.cell(row=freeze_rows + 1, column=freeze_cols + 1)
 
+    default_widths: dict[str, float] = {
+        "inn": 30.0,
+        "company_name": 70.0,
+        "region_name": 100.0,
+        "region_count": 10.0,
+        "region_base_name": 90.0,
+        "region_base_count": 10.0,
+    }
     for col_idx, key in enumerate(column_keys, start=1):
-        width = float(column_specs.get(key, {}).get("width", 30 if key == "inn" else 150))
+        width = float(
+            column_specs.get(key, {}).get("width", default_widths.get(key, 30.0))
+        )
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
-    # Имена заголовков уже записаны; проверка согласованности.
     _ = headers
 
 
 def сохранить_результат(
-    rows: list[dict[str, str]],
+    rows: list[dict[str, Any]],
     output_path: Path,
     sheet_name: str,
     output_columns: dict[str, str],
     format_cfg: dict[str, Any],
 ) -> None:
     """Записать агрегированную таблицу в отдельный Excel-файл."""
-    column_keys = ["inn", "company_name", "region_name"]
+    column_keys = list(OUTPUT_COLUMN_KEYS)
     headers = [str(output_columns.get(k, k)) for k in column_keys]
     column_specs: dict[str, dict[str, Any]] = dict(format_cfg.get("columns") or {})
 
@@ -355,6 +394,9 @@ def разрешить_настройки(args: argparse.Namespace) -> dict[str,
                     "inn": "ИНН",
                     "company_name": "Наименование",
                     "region_name": "Наименование, регион",
+                    "region_count": "Кол-во регионов",
+                    "region_base_name": "Наименование без города",
+                    "region_base_count": "Кол-во наименований без города",
                 },
             )
         ),
