@@ -9,6 +9,9 @@ LOGS/
 !input/workbook.xlsx
 !input/Tables+Holding.xlsx
 !input/base_kg_sample.xlsx
+!input/erz_full_sample.json
+input/ERZ_Full_20*.json
+POST/
 *.xlsm
 *.xls
 

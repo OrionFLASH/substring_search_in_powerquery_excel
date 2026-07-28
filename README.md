@@ -44,10 +44,14 @@ substring_search_in_powerquery_excel/
 │   ├── generate_test_workbook.py      # Сборка тестовой книги Tables+Holding.xlsx
 │   ├── gsz_matcher_parallel.py
 │   ├── extract_base_kg_inn.py         # Разбор «Компании группы (ЕРЗ)» → ИНН
+│   ├── erz_json_to_excel.py           # ERZ_Full JSON → Excel (группы + компании)
+│   ├── erz/
+│   │   └── erz_devtools_scraper.js    # Сбор данных ERZ из Console браузера
 │   └── Tests/
 │       ├── test_gsz_matcher_parity.py
 │       ├── test_key_fix_id.py
-│       └── test_extract_base_kg_inn.py
+│       ├── test_extract_base_kg_inn.py
+│       └── test_erz_json_to_excel.py
 └── output/                            # Локальный вывод (в git не попадает)
 ```
 
@@ -492,7 +496,7 @@ python3 src/generate_gsz_keys.py
 | Python | `src/extract_base_kg_inn.py` → отдельный Excel |
 | Power Query | `src/PowerQuery/_BASE_KG_INN.pq` → отдельный лист/запрос |
 | Конфиг | блок `base_kg_inn_extract` в `config.json` |
-| Пример входа | `input/base_kg_sample.xlsx` (смарт-таблица `_base_kg`) |
+| Пример входа | `input/base_kg_sample.xlsx` (~170+ строк `_base_kg` из реальных «Наименование, регион») |
 
 ### Вход
 
@@ -568,6 +572,73 @@ python3 src/extract_base_kg_inn.py \
 PYTHONPATH=src python3 -m unittest Tests.test_extract_base_kg_inn -v
 ```
 
+## ERZ DevTools scraper
+
+Сбор данных с [erzrf.ru/zastroyschiki](https://erzrf.ru/zastroyschiki) через Console браузера (без внешних зависимостей, куки текущей сессии).
+
+**Файл:** [`src/erz/erz_devtools_scraper.js`](src/erz/erz_devtools_scraper.js)
+
+### Запуск
+
+1. Открыть `https://erzrf.ru/zastroyschiki?...` (нужна авторизованная/рабочая сессия сайта).
+2. DevTools → **Console** → вставить содержимое `erz_devtools_scraper.js` → Enter.
+3. В модалке:
+   - настроить паузу (100–2000 мс, по умолчанию 400), режим `developer/names` и `developer/join` (один регион / все; **join по умолчанию — все**, иначе API вернёт компании только по одному региону), чекбокс промежуточных JSON;
+   - **либо** кнопка **«Автоматически скачать всё»** — все регионы → все группы → компании → `ERZ_Full_*.json` (с учётом паузы / промежуточных / names / join);
+   - **либо** вручную: **Загрузить регионы** → отметить нужные → **Запросить группы** → отметить группы → **Запросить компании**.
+
+`costType=1` всегда. Промежуточные файлы: `<stage>_<id>_<urlId>_<timestamp>.json`.
+
+### Структура итогового JSON
+
+```json
+{
+  "meta": { "exportedAt": "...", "costType": 1, "namesMode": "one|all", "pauseMs": 400 },
+  "regions": [{ "id", "text", "additional", "brandCount" }],
+  "groups": [{
+    "id", "name", "urlId",
+    "regions": [{ "region", "regionKey" }],
+    "groupCompanies": [{ "id", "inn", "name", "ogrn", "urlId", "locations": [{ "address", "regionKey" }] }],
+    "brandCompanies": [{ "id", "inn", "name", "ogrn", "urlId", "locations": [{ "address" }] }]
+  }]
+}
+```
+
+Цепочка API: `dictionary` → `brand_count` → `brand/join` → `developer/join/{groupId}` → `developer/names`.
+
+Тестовый JSON для офлайн-проверки: [`input/erz_full_sample.json`](input/erz_full_sample.json).
+
+## ERZ JSON → Excel
+
+Преобразование результата скрапера в книгу Excel (openpyxl), параметры — блок `erz_json_to_excel` в `config.json`.
+
+**Скрипт:** [`src/erz_json_to_excel.py`](src/erz_json_to_excel.py)
+
+```bash
+# по input_json из config (по умолчанию sample)
+python3 src/erz_json_to_excel.py
+
+# явный файл (скачанный ERZ_Full_*.json в input/)
+python3 src/erz_json_to_excel.py --input-json input/ERZ_Full_20260728_120000.json
+```
+
+Если `input_json` пуст — берётся самый новый файл по `input_glob` в `input_dir`.
+
+### Листы
+
+| Лист | Содержание |
+|------|------------|
+| `_ERZ_GROUPS` | Группа, регионы (`;\n`), компании группы, компании бренда (+ счётчики) |
+| `_ERZ_COMPANIES` | Уникальный ИНН; тип (группа / бренд / оба); список групп; кол-во групп; «группа, регион»; кол-во пар группа+регион |
+
+Форматирование как у остальных скриптов: жирные заголовки, автофильтр, freeze, wrap, ширины и выравнивание из config.
+
+### Тест
+
+```bash
+PYTHONPATH=src python3 -m unittest Tests.test_erz_json_to_excel -v
+```
+
 ## История версий
 
 | Версия | Дата | Изменения |
@@ -591,3 +662,6 @@ PYTHONPATH=src python3 -m unittest Tests.test_extract_base_kg_inn -v
 | 1.15 | 2026-07-17 | Предфильтр: все AND/OR-токены full/not (без отсечения до одного якоря; кейс Seven/СЕВЕН) |
 | 1.16 | 2026-07-28 | Разбор `_base_kg`: Python `extract_base_kg_inn.py` + PQ `_BASE_KG_INN.pq`, блок `base_kg_inn_extract` |
 | 1.17 | 2026-07-28 | `_BASE_KG_INN`: freeze=1, ширины 30/70/100/10/90/10, кол-во регионов и наименование без города |
+| 1.18 | 2026-07-28 | ERZ DevTools scraper (`src/erz/erz_devtools_scraper.js`): регионы → группы → компании → JSON |
+| 1.19 | 2026-07-28 | ERZ JSON → Excel (`erz_json_to_excel.py`): листы групп и уникальных компаний, `erz_full_sample.json` |
+| 1.20 | 2026-07-29 | ERZ scraper: авто-прогон, retry 504, join по всем регионам; Excel: `group_regions_count` |

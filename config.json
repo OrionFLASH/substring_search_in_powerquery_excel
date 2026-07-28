@@ -6,8 +6,8 @@
   "short_token_not_max_len": 5,
   "common_token_threshold": 80,
   "gsz_matcher_parallel": {
-    "input_xlsx": "input/Tables+Holding.xlsx",
-    "output_xlsx": "output/hold_od_gsz_python.xlsx",
+    "input_xlsx": "input/Tables (ALL R).xlsx",
+    "output_xlsx": "output/hold_od_gsz_match.xlsx",
     "output_add_timestamp": true,
     "output_timestamp_format": "%Y%m%d_%H%M%S",
     "holding_table": "_HOLD_OD",
@@ -82,7 +82,7 @@
       "holding_sheet": {
         "columns": {
           "gsz_primary": {"name": "Бренд", "width": 100},
-          "gsz_debug": {"name": "Отладка_совпадения_Бренд", "width": 150, "wrap": true},
+          "gsz_debug": {"name": "Множество_Брендов", "width": 150, "wrap": true},
           "match_status": {"name": "статус", "width": 40, "wrap": true},
           "match_count": {"name": "Кол-во совпадений", "width": 30}
         }
@@ -90,8 +90,9 @@
       "base_sheet": {
         "columns": {
           "holding_count": {"name": "кол-во холдингов", "width": 30},
-          "found_holding": {"name": "найденный холдинг", "width": 100},
-          "found_holding_debug": {"name": "Отладка_найденного_холдинга", "width": 150, "wrap": true},
+          "found_holding": {"name": "Найденный холдинг", "width": 100},
+          "found_holding_debug": {"name": "Множество холдингов",
+            "width": 150, "wrap": true},
           "match_status": {"name": "статус", "width": 40, "wrap": true},
           "key_string": {"name": "строка ключа", "width": 30},
           "key_length": {"name": "длина ключа", "width": 30},
@@ -117,8 +118,8 @@
       "company_name": "Наименование",
       "region_name": "Наименование, регион",
       "region_count": "Кол-во регионов",
-      "region_base_name": "Наименование без города",
-      "region_base_count": "Кол-во наименований без города"
+      "region_base_name": "Наименование без региона",
+      "region_base_count": "Кол-во наименований без региона"
     },
     "log_to_file": true,
     "logs_dir": "log",
@@ -128,15 +129,15 @@
       "header_center": true,
       "header_wrap": true,
       "freeze_rows": 1,
-      "freeze_cols": 1,
+      "freeze_cols": 2,
       "data_vertical_center": true,
       "data_horizontal": "left",
       "columns": {
-        "inn": {"width": 30, "wrap": false},
-        "company_name": {"width": 70, "wrap": true},
-        "region_name": {"width": 100, "wrap": true},
+        "inn": {"width": 20, "wrap": false},
+        "company_name": {"width": 50, "wrap": true},
+        "region_name": {"width": 80, "wrap": true},
         "region_count": {"width": 10, "wrap": false, "align": "center"},
-        "region_base_name": {"width": 90, "wrap": true},
+        "region_base_name": {"width": 60, "wrap": true},
         "region_base_count": {"width": 10, "wrap": false, "align": "center"}
       }
     },
@@ -145,6 +146,96 @@
       "parse": "Фрагменты вида «Название (ИНН 1234567890)» разделяются company_separators; ключевое слово inn_keyword настраивается.",
       "aggregate": "Для одного ИНН разные названия и разные «Наименование, регион» склеиваются через multi_value_joiner (по умолчанию «;» + перенос строки).",
       "region_base": "«Наименование без города» — уникальные части «Наименование, регион» до первой запятой; region_count / region_base_count — количества уникальных значений."
+    }
+  },
+  "erz_json_to_excel": {
+    "input_json": "input/ERZ_Full_20260728_234730.json",
+    "input_dir": "input",
+    "input_glob": "ERZ_Full_*.json",
+    "output_xlsx": "output/erz_from_json.xlsx",
+    "output_add_timestamp": true,
+    "output_timestamp_format": "%Y%m%d_%H%M%S",
+    "groups_sheet": "_ERZ_GROUPS",
+    "companies_sheet": "_ERZ_COMPANIES",
+    "multi_value_joiner": ";\n",
+    "company_line_template": "{name} (ИНН {inn})",
+    "group_region_template": "{group}, {region}",
+    "role_labels": {
+      "group": "компания группы",
+      "brand": "компания бренда",
+      "both": "группа и бренд"
+    },
+    "groups_columns": {
+      "group_id": "ID группы",
+      "group_name": "Группа застройщиков",
+      "group_url_id": "urlId группы",
+      "regions": "Регионы",
+      "region_count": "Кол-во регионов",
+      "group_companies": "Компании группы",
+      "group_companies_count": "Кол-во компаний группы",
+      "brand_companies": "Компании бренда",
+      "brand_companies_count": "Кол-во компаний бренда"
+    },
+    "companies_columns": {
+      "inn": "ИНН",
+      "company_name": "Наименование",
+      "ogrn": "ОГРН",
+      "url_id": "urlId",
+      "role": "Тип",
+      "groups": "Группы застройщиков",
+      "groups_count": "Кол-во групп",
+      "group_regions": "Группа, регион",
+      "group_regions_count": "Кол-во группа+регион"
+    },
+    "groups_format": {
+      "header_bold": true,
+      "header_center": true,
+      "header_wrap": true,
+      "freeze_rows": 1,
+      "freeze_cols": 1,
+      "data_vertical_center": true,
+      "data_horizontal": "left",
+      "columns": {
+        "group_id": {"width": 18, "wrap": false},
+        "group_name": {"width": 40, "wrap": true},
+        "group_url_id": {"width": 30, "wrap": false},
+        "regions": {"width": 50, "wrap": true},
+        "region_count": {"width": 10, "wrap": false, "align": "center"},
+        "group_companies": {"width": 80, "wrap": true},
+        "group_companies_count": {"width": 12, "wrap": false, "align": "center"},
+        "brand_companies": {"width": 80, "wrap": true},
+        "brand_companies_count": {"width": 12, "wrap": false, "align": "center"}
+      }
+    },
+    "companies_format": {
+      "header_bold": true,
+      "header_center": true,
+      "header_wrap": true,
+      "freeze_rows": 1,
+      "freeze_cols": 1,
+      "data_vertical_center": true,
+      "data_horizontal": "left",
+      "columns": {
+        "inn": {"width": 20, "wrap": false},
+        "company_name": {"width": 50, "wrap": true},
+        "ogrn": {"width": 20, "wrap": false},
+        "url_id": {"width": 40, "wrap": true},
+        "role": {"width": 22, "wrap": false, "align": "center"},
+        "groups": {"width": 40, "wrap": true},
+        "groups_count": {"width": 12, "wrap": false, "align": "center"},
+        "group_regions": {"width": 60, "wrap": true},
+        "group_regions_count": {"width": 12, "wrap": false, "align": "center"}
+      }
+    },
+    "log_to_file": true,
+    "logs_dir": "log",
+    "log_file_prefix": "INFO_erz_json_to_excel",
+    "_docs": {
+      "purpose": "Преобразование ERZ_Full JSON (DevTools scraper) в Excel: лист групп и лист уникальных компаний по ИНН.",
+      "input": "Явный input_json или самый новый файл по input_glob в input_dir.",
+      "groups_sheet": "Одна строка на группу; регионы и списки компаний склеиваются multi_value_joiner.",
+      "companies_sheet": "Уникальный ИНН; role = группа / бренд / оба; groups + groups_count; group_regions = «группа, регион»; group_regions_count.",
+      "joiner": "По умолчанию «;» + перевод строки (как в base_kg_inn_extract)."
     }
   }
 }

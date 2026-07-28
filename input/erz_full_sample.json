@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "exportedAt": "2026-07-28T20:00:00.000Z",
+    "costType": 1,
+    "namesMode": "one",
+    "pauseMs": 400,
+    "source": "https://erzrf.ru/zastroyschiki?region=moskva&regionKey=143443001&costType=1"
+  },
+  "regions": [
+    {
+      "id": "143443001",
+      "text": "г. Москва",
+      "additional": "moskva",
+      "brandCount": 2
+    },
+    {
+      "id": "143451001",
+      "text": "Московская область",
+      "additional": "moskovskaya-oblast",
+      "brandCount": 2
+    }
+  ],
+  "groups": [
+    {
+      "id": "429726001",
+      "name": "ПИК",
+      "urlId": "pik-429726001",
+      "regions": [
+        { "region": "г.Москва", "regionKey": "143443001" },
+        { "region": "Московская область", "regionKey": "143451001" }
+      ],
+      "groupCompanies": [
+        {
+          "id": "490190001",
+          "inn": "7713011336",
+          "name": "ПАО ПИК СЗ",
+          "ogrn": "1027739137084",
+          "urlId": "pao-pik-sz-490190001",
+          "locations": [
+            { "address": "г.Москва, город Москва", "regionKey": "143443001" },
+            { "address": "Московская область", "regionKey": "143451001" }
+          ]
+        },
+        {
+          "id": "150557001",
+          "inn": "7701511447",
+          "name": "ООО СЗ Териберский Берег",
+          "ogrn": "1037739970773",
+          "urlId": "ooo-teriberskij-bereg-150557001",
+          "locations": [
+            { "address": "г.Москва, город Москва", "regionKey": "143443001" }
+          ]
+        }
+      ],
+      "brandCompanies": [
+        {
+          "id": "3851500001",
+          "inn": "7729755852",
+          "name": "АО ПИК-ИНДУСТРИЯ",
+          "ogrn": "5137746021012",
+          "urlId": "ao-pik-industrija-3851500001",
+          "locations": [{ "address": "г.Москва" }]
+        },
+        {
+          "id": "150557001",
+          "inn": "7701511447",
+          "name": "ООО СЗ Териберский Берег",
+          "ogrn": "1037739970773",
+          "urlId": "ooo-teriberskij-bereg-150557001",
+          "locations": [{ "address": "г.Москва" }]
+        }
+      ]
+    },
+    {
+      "id": "430001001",
+      "name": "Самолёт",
+      "urlId": "samolet-430001001",
+      "regions": [
+        { "region": "г.Москва", "regionKey": "143443001" },
+        { "region": "Московская область", "regionKey": "143451001" }
+      ],
+      "groupCompanies": [
+        {
+          "id": "500100001",
+          "inn": "7701511447",
+          "name": "ООО СЗ Териберский Берег",
+          "ogrn": "1037739970773",
+          "urlId": "ooo-teriberskij-bereg-150557001",
+          "locations": [
+            { "address": "Московская область", "regionKey": "143451001" }
+          ]
+        },
+        {
+          "id": "500200001",
+          "inn": "5029055678",
+          "name": "ООО СЗ Самолёт-Регион",
+          "ogrn": "1025000000001",
+          "urlId": "ooo-sz-samolet-region-500200001",
+          "locations": [
+            { "address": "Московская область", "regionKey": "143451001" }
+          ]
+        }
+      ],
+      "brandCompanies": [
+        {
+          "id": "3851500001",
+          "inn": "7729755852",
+          "name": "АО ПИК-ИНДУСТРИЯ",
+          "ogrn": "5137746021012",
+          "urlId": "ao-pik-industrija-3851500001",
+          "locations": [{ "address": "г.Москва" }]
+        },
+        {
+          "id": "600300001",
+          "inn": "7703009999",
+          "name": "ООО Бренд-Партнёр",
+          "ogrn": "1027700000999",
+          "urlId": "ooo-brend-partner-600300001",
+          "locations": [{ "address": "г.Москва" }]
+        }
+      ]
+    }
+  ]
+}

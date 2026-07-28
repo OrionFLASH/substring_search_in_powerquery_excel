@@ -26,6 +26,8 @@
 | 20 | Предфильтр: все AND/OR-токены (без отсечения до одного якоря) | `[v]` |
 | 21 | Разбор `_base_kg`: уникальные ИНН из «Компании группы (ЕРЗ)» | `[v]` |
 | 22 | `_base_kg` ИНН: freeze=1, ширины, кол-во регионов и имя без города | `[v]` |
+| 23 | ERZ DevTools scraper: регионы → группы → компании → JSON | `[v]` |
+| 24 | ERZ JSON → Excel: группы + уникальные компании по ИНН | `[v]` |
 
 Подробное ТЗ: [ToDo/key_fix_id.md](ToDo/key_fix_id.md).
 
@@ -42,6 +44,45 @@
 1. `[v]` config.json + Python агрегация/форматирование
 2. `[v]` Power Query `_BASE_KG_INN.pq`
 3. `[v]` тесты и README
+
+### Этап 23 — ERZ DevTools scraper
+
+**Цель:** собрать с erzrf.ru регионы, группы бренда и компании (группы + бренд) в JSON
+через скрипт в Console DevTools (куки текущей сессии, без внешних зависимостей).
+
+**Артефакт:** [`src/erz/erz_devtools_scraper.js`](src/erz/erz_devtools_scraper.js)
+
+**Параметры по умолчанию:** пауза 400 мс, `costType=1`, names = один регион на группу,
+`join` = **все регионы группы** (API join фильтрует по region), авто «скачать всё»,
+повторы при 504 (до 3), итог `ERZ_Full_<timestamp>.json`.
+
+**Шаги:**
+1. `[v]` IIFE + модалка + `sleep` / `fetchJson` / `downloadJson` / лог
+2. `[v]` dictionary → выбор регионов → `brand_count` + `brand/join` → дедуп групп
+3. `[v]` `developer/join` + `developer/names` (one/all) → дедуп компаний
+4. `[v]` финальный/промежуточный JSON + README/ROADMAP
+5. `[v]` авто-прогон всех регионов/групп; retry 504; join по всем регионам группы
+
+### Этап 24 — ERZ JSON → Excel
+
+**Цель:** из `ERZ_Full_*.json` (или тестового `input/erz_full_sample.json`) собрать Excel
+с двумя листами: группы застройщиков и уникальные компании по ИНН.
+
+**Артефакты:**
+- Python: [`src/erz_json_to_excel.py`](src/erz_json_to_excel.py);
+- конфиг: блок `erz_json_to_excel` в `config.json`;
+- пример: `input/erz_full_sample.json`;
+- тесты: `src/Tests/test_erz_json_to_excel.py`.
+
+**Листы:**
+1. `_ERZ_GROUPS` — группа, регионы (`;\n`), компании группы, компании бренда;
+2. `_ERZ_COMPANIES` — уникальный ИНН, тип (группа / бренд / оба), список групп,
+   кол-во групп, «группа, регион», кол-во пар группа+регион.
+
+**Шаги:**
+1. `[v]` тестовый JSON
+2. `[v]` скрипт + форматирование (автофильтр, freeze, wrap, ширины)
+3. `[v]` config / README / ROADMAP / unit-тесты
 
 ### Этап 21 — разбор `_base_kg` → уникальные ИНН
 

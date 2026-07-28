@@ -1,0 +1,4399 @@
+Надо создать скрипт JS для запуска его через DevTools на сайте в браузере
+сайт: https://erzrf.ru/zastroyschiki?region=moskva&regionKey=143443001&costType=1
+
+на этом сайте надо последовательно собирать данные из запросов для запросов если нужны куки то надо использовать куки текущей сессии
+сначала делается запрос для получения списка и ИД регионов застройщиков
+
+это запрос: 
+:method: GET
+:scheme: https
+:authority: erzrf.ru
+:path: /erz-rest/api/v1/global/dictionary?type=buildings_regions
+Accept: application/json, text/plain, */*
+Sec-Fetch-Site: same-origin
+Cookie: _ym_visorc=b; _ym_fa=11106.DiQcnNJhHUUQNKVae0zG2O6GPVlFzdaFJitL2Khp5wDdaO50N4f0zwtMjLmt3X0R.FpVdLQtUPiV-jywaGg0DEPcbZu4%2C; _ym_d=1785265812; _ym_isad=2; _ym_uid=1785265812363746836
+Sec-Fetch-Dest: empty
+Accept-Language: ru
+Sec-Fetch-Mode: cors
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15
+Accept-Encoding: gzip, deflate, br, zstd
+Referer: https://erzrf.ru/zastroyschiki?region=moskva&regionKey=143443001&costType=1
+Priority: u=3, i
+
+ответ:
+:status: 200
+Content-Type: application/json
+Pragma: no-cache
+X-XSS-Protection: 0
+Content-Encoding: gzip
+Expires: 0
+Referrer-Policy: origin-when-cross-origin
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Date: Tue, 28 Jul 2026 19:11:04 GMT
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Vary: Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+x-cache-status: HIT
+Server: nginx
+
+Параметры строки запроса
+type: buildings_regions
+
+ответ в виде JSON будет таким:
+[{
+    "id": "0",
+    "text": "Все регионы",
+    "additional": "vse-regiony",
+    "disabled": true,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144004001",
+    "text": "Алтайский край",
+    "additional": "altayskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144043001",
+    "text": "Амурская область",
+    "additional": "amurskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144073001",
+    "text": "Архангельская область",
+    "additional": "arkhangelskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144115001",
+    "text": "Астраханская область",
+    "additional": "astrakhanskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144199001",
+    "text": "Белгородская область",
+    "additional": "belgorodskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144235001",
+    "text": "Брянская область",
+    "additional": "bryanskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144307001",
+    "text": "Владимирская область",
+    "additional": "vladimirskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144379001",
+    "text": "Волгоградская область",
+    "additional": "volgogradskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142254001",
+    "text": "Вологодская область",
+    "additional": "vologodskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142301001",
+    "text": "Воронежская область",
+    "additional": "voronezhskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "24076888001",
+    "text": "Донецкая Народная Республика",
+    "additional": "doneckaya-narodnaya-respublika",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142386001",
+    "text": "Еврейская автономная область",
+    "additional": "yevreyskaya-avtonomnaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142397001",
+    "text": "Забайкальский край",
+    "additional": "zabaykalskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "24696931001",
+    "text": "Запорожская область",
+    "additional": "zaporozhskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142430001",
+    "text": "Ивановская область",
+    "additional": "ivanovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142499001",
+    "text": "Иркутская область",
+    "additional": "irkutskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142568001",
+    "text": "Кабардино-Балкарская Республика",
+    "additional": "kabardino-balkarskaya-respublika",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142595001",
+    "text": "Калининградская область",
+    "additional": "kaliningradskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142678001",
+    "text": "Калужская область",
+    "additional": "kaluzhskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142747001",
+    "text": "Камчатский край",
+    "additional": "kamchatskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142759001",
+    "text": "Карачаево-Черкесская Республика",
+    "additional": "karachayevo-cherkesskaya-respublika",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142816001",
+    "text": "Кемеровская область",
+    "additional": "kemerovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142878001",
+    "text": "Кировская область",
+    "additional": "kirovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142962001",
+    "text": "Костромская область",
+    "additional": "kostromskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143001001",
+    "text": "Краснодарский край",
+    "additional": "krasnodarskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143082001",
+    "text": "Красноярский край",
+    "additional": "krasnoyarskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143215001",
+    "text": "Курганская область",
+    "additional": "kurganskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143245001",
+    "text": "Курская область",
+    "additional": "kurskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143275001",
+    "text": "Ленинградская область",
+    "additional": "leningradskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "143368001",
+    "text": "Липецкая область",
+    "additional": "lipetskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "24696901001",
+    "text": "Луганская Народная Республика",
+    "additional": "luganskaya-narodnaya-respublika",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143395001",
+    "text": "Магаданская область",
+    "additional": "magadanskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143449001",
+    "text": "Московская область",
+    "additional": "moskovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "143689001",
+    "text": "Мурманская область",
+    "additional": "murmanskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143737001",
+    "text": "Ненецкий автономный округ",
+    "additional": "nenetskiy-avtonomnyy-okrug",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143743001",
+    "text": "Нижегородская область",
+    "additional": "nizhegorodskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "143830001",
+    "text": "Новгородская область",
+    "additional": "novgorodskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143863001",
+    "text": "Новосибирская область",
+    "additional": "novosibirskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "143908001",
+    "text": "Омская область",
+    "additional": "omskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143929001",
+    "text": "Оренбургская область",
+    "additional": "orenburgskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143968001",
+    "text": "Орловская область",
+    "additional": "orlovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144442001",
+    "text": "Пензенская область",
+    "additional": "penzenskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144475001",
+    "text": "Пермский край",
+    "additional": "permskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144553001",
+    "text": "Приморский край",
+    "additional": "primorskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144589001",
+    "text": "Псковская область",
+    "additional": "pskovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143989001",
+    "text": "Республика Адыгея (Адыгея)",
+    "additional": "respublika-adygeya-adygeya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143998001",
+    "text": "Республика Алтай",
+    "additional": "respublika-altay",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "170580001",
+    "text": "Республика Башкортостан",
+    "additional": "respublika-bashkortostan",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144286001",
+    "text": "Республика Бурятия",
+    "additional": "respublika-buryatiya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "171721001",
+    "text": "Республика Дагестан",
+    "additional": "respublika-dagestan",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142484001",
+    "text": "Республика Ингушетия",
+    "additional": "respublika-ingushetiya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "142666001",
+    "text": "Республика Калмыкия",
+    "additional": "respublika-kalmykiya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "177093001",
+    "text": "Республика Карелия",
+    "additional": "respublika-kareliya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "175946001",
+    "text": "Республика Коми",
+    "additional": "respublika-komi",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143156001",
+    "text": "Республика Крым",
+    "additional": "respublika-krym",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "175760001",
+    "text": "Республика Марий Эл",
+    "additional": "respublika-mariy-el",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "164670001",
+    "text": "Республика Мордовия",
+    "additional": "respublika-mordoviya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145738001",
+    "text": "Республика Саха (Якутия)",
+    "additional": "respublika-sakha-yakutiya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145051001",
+    "text": "Республика Северная Осетия-Алания",
+    "additional": "respublika-severnaya-osetiya-alaniya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145204001",
+    "text": "Республика Татарстан (Татарстан)",
+    "additional": "respublika-tatarstan-tatarstan",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "145423001",
+    "text": "Республика Тыва",
+    "additional": "respublika-tyva",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145525001",
+    "text": "Республика Хакасия",
+    "additional": "respublika-khakasiya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144634001",
+    "text": "Ростовская область",
+    "additional": "rostovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144706001",
+    "text": "Рязанская область",
+    "additional": "ryazanskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144745001",
+    "text": "Самарская область",
+    "additional": "samarskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "144808001",
+    "text": "Саратовская область",
+    "additional": "saratovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144862001",
+    "text": "Сахалинская область",
+    "additional": "sakhalinskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "144910001",
+    "text": "Свердловская область",
+    "additional": "sverdlovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "145072001",
+    "text": "Смоленская область",
+    "additional": "smolenskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145120001",
+    "text": "Ставропольский край",
+    "additional": "stavropolskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145177001",
+    "text": "Тамбовская область",
+    "additional": "tambovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145273001",
+    "text": "Тверская область",
+    "additional": "tverskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145345001",
+    "text": "Томская область",
+    "additional": "tomskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145366001",
+    "text": "Тульская область",
+    "additional": "tulskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145441001",
+    "text": "Тюменская область",
+    "additional": "tyumenskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145459001",
+    "text": "Удмуртская Республика",
+    "additional": "udmurtskaya-respublika",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145480001",
+    "text": "Ульяновская область",
+    "additional": "ulyanovskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145501001",
+    "text": "Хабаровский край",
+    "additional": "khabarovskiy-kray",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145543001",
+    "text": "Ханты-Мансийский автономный округ - Югра",
+    "additional": "khanty-mansiyskiy-avtonomnyy-okrug---yugra",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "24696948001",
+    "text": "Херсонская область",
+    "additional": "hersonskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145591001",
+    "text": "Челябинская область",
+    "additional": "chelyabinskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145678001",
+    "text": "Чеченская Республика",
+    "additional": "chechenskaya-respublika",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145696001",
+    "text": "Чувашская Республика-Чувашия",
+    "additional": "chuvashskaya-respublika-chuvashiya",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145726001",
+    "text": "Чукотский автономный округ",
+    "additional": "chukotskiy-avtonomnyy-okrug",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "164955001",
+    "text": "Ямало-Ненецкий автономный округ",
+    "additional": "yamalo-nenetskiy-avtonomnyy-okrug",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "145804001",
+    "text": "Ярославская область",
+    "additional": "yaroslavskaya-oblast",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}, {
+    "id": "143443001",
+    "text": "г.Москва",
+    "additional": "moskva",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "144781001",
+    "text": "г.Санкт-Петербург",
+    "additional": "sankt-peterburg",
+    "disabled": false,
+    "info": {
+        "hasMetro": true
+    }
+}, {
+    "id": "143180001",
+    "text": "г.Севастополь",
+    "additional": "sevastopol",
+    "disabled": false,
+    "info": {
+        "hasMetro": false
+    }
+}]
+
+из ответа надо собрать и сохранить 
+"id": "143180001",
+    "text": "г.Севастополь",
+    "additional": "sevastopol",
+для дальнейшего использования
+
+далее для каждого "id": "143180001", + additional": "sevastopol", надо сделать следующие запросы по числу этих ID 
+
+запрос
+:method: GET
+:scheme: https
+:authority: erzrf.ru
+:path: /erz-rest/api/v1/brand_count?region=moskva&regionKey=143443001&costType=1
+Accept: application/json, text/plain, */*
+Sec-Fetch-Site: same-origin
+Cookie: _ym_visorc=b; _ym_fa=11106.DiQcnNJhHUUQNKVae0zG2O6GPVlFzdaFJitL2Khp5wDdaO50N4f0zwtMjLmt3X0R.FpVdLQtUPiV-jywaGg0DEPcbZu4%2C; _ym_d=1785265812; _ym_isad=2; _ym_uid=1785265812363746836
+Referer: https://erzrf.ru/zastroyschiki?region=moskva&regionKey=143443001&costType=1
+Sec-Fetch-Dest: empty
+Access-Control-Allow-Origin: *
+Sec-Fetch-Mode: cors
+Accept-Language: ru
+Accept-Encoding: gzip, deflate, br, zstd
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15
+Priority: u=3, i
+
+ответ
+:status: 200
+Content-Type: application/json
+Pragma: no-cache
+X-XSS-Protection: 0
+Content-Encoding: gzip
+Expires: 0
+Referrer-Policy: origin-when-cross-origin
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Date: Tue, 28 Jul 2026 19:11:04 GMT
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Vary: Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+x-cache-status: HIT
+Server: nginx
+
+в Параметры строки запроса надо ставить при каждом запросе свои данные из предыдущего 
+region: moskva
+regionKey: 143443001
+costType: 1
+
+где region = additional
+regionKey = id
+costType = 1 (всегда)
+
+ответ будет такой 
+
+{
+    "count": "325"
+}
+
+это значение надо сохранить для каждого региона те добавить к уже сохраненным 
+"id": "143180001",
+    "text": "г.Севастополь",
+    "additional": "sevastopol",
+для дальнейшего использования
+
+следом надо делать последовательно также для каждого региона запрпос следующий
+
+:method: GET
+:scheme: https
+:authority: erzrf.ru
+:path: /erz-rest/api/v1/brand/join?region=moskva&regionKey=143443001&costType=1&min=1&max=18
+Accept: application/json, text/plain, */*
+Sec-Fetch-Site: same-origin
+Cookie: _ym_visorc=b; _ym_fa=11106.DiQcnNJhHUUQNKVae0zG2O6GPVlFzdaFJitL2Khp5wDdaO50N4f0zwtMjLmt3X0R.FpVdLQtUPiV-jywaGg0DEPcbZu4%2C; _ym_d=1785265812; _ym_isad=2; _ym_uid=1785265812363746836
+Sec-Fetch-Dest: empty
+Accept-Language: ru
+Sec-Fetch-Mode: cors
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15
+Accept-Encoding: gzip, deflate, br, zstd
+Referer: https://erzrf.ru/zastroyschiki?region=moskva&regionKey=143443001&costType=1
+Priority: u=3, i
+
+ответ
+:status: 200
+Content-Type: application/json
+Pragma: no-cache
+X-XSS-Protection: 0
+Content-Encoding: gzip
+Expires: 0
+Referrer-Policy: origin-when-cross-origin
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Date: Tue, 28 Jul 2026 19:11:04 GMT
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Vary: Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+x-cache-status: HIT
+Server: nginx
+
+Параметры строки запроса
+region: moskva
+regionKey: 143443001
+costType: 1
+min: 1
+max: 18
+
+где при каждом запросе (по числу регионов) 
+
+region = additional
+regionKey = id
+costType = 1 (всегда)
+min = 1 (всегда)
+max = сохраненный ранее count для этого региона
+
+
+получаем для каждого региона список застройщиков в виде такого ответа:
+{
+    "list": [
+        {
+            "apartmentsCountAll": 91992,
+            "apartmentsCountSales": 91992,
+            "buildingVolume": "2239980",
+            "coefficientRating": "100",
+            "complexesCountAll": 98,
+            "complexesCountSales": 98,
+            "filteredApartmentsCount": 91992,
+            "filteredComplexCount": 98,
+            "filteredGkCount": 98,
+            "filteredOrgCount": 76,
+            "filteredPtCount": 0,
+            "foundationYear": "1994",
+            "gkCountSales": 98,
+            "id": "429726001",
+            "maxApartmentCostM2": "927681",
+            "maxCostMillion": "122.7",
+            "name": "ПИК",
+            "orgCountAll": 76,
+            "orgCountSales": 76,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "1",
+            "rfPlace": "2",
+            "shareRegionPercent": "13.43",
+            "urlId": "pik-429726001"
+        },
+        {
+            "apartmentsCountAll": 22356,
+            "apartmentsCountSales": 22356,
+            "buildingVolume": "1079976",
+            "coefficientRating": "48.21",
+            "complexesCountAll": 33,
+            "complexesCountSales": 33,
+            "filteredApartmentsCount": 22356,
+            "filteredComplexCount": 33,
+            "filteredGkCount": 33,
+            "filteredOrgCount": 28,
+            "filteredPtCount": 0,
+            "foundationYear": "2006",
+            "gkCountSales": 33,
+            "id": "2366201001",
+            "maxApartmentCostM2": "2432809",
+            "maxCostMillion": "358.7",
+            "name": "ГК Самолет",
+            "orgCountAll": 28,
+            "orgCountSales": 28,
+            "ptCountSales": 0,
+            "rating": "3",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "2",
+            "rfPlace": "1",
+            "shareRegionPercent": "6.48",
+            "urlId": "gruppa-kompanij-samolet-2366201001"
+        },
+        {
+            "apartmentsCountAll": 15159,
+            "apartmentsCountSales": 15159,
+            "buildingVolume": "1051717",
+            "coefficientRating": "46.95",
+            "complexesCountAll": 37,
+            "complexesCountSales": 37,
+            "filteredApartmentsCount": 15159,
+            "filteredComplexCount": 37,
+            "filteredGkCount": 37,
+            "filteredOrgCount": 37,
+            "filteredPtCount": 0,
+            "foundationYear": "2003",
+            "gkCountSales": 37,
+            "id": "430836001",
+            "maxApartmentCostM2": "6000000",
+            "maxCostMillion": "2619.6",
+            "name": "MR Group",
+            "orgCountAll": 37,
+            "orgCountSales": 37,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "3",
+            "rfPlace": "12",
+            "shareRegionPercent": "6.31",
+            "urlId": "mr-group-430836001"
+        },
+        {
+            "apartmentsCountAll": 44485,
+            "apartmentsCountSales": 44485,
+            "buildingVolume": "797384",
+            "coefficientRating": "35.6",
+            "complexesCountAll": 21,
+            "complexesCountSales": 21,
+            "filteredApartmentsCount": 44485,
+            "filteredComplexCount": 21,
+            "filteredGkCount": 21,
+            "filteredOrgCount": 30,
+            "filteredPtCount": 0,
+            "foundationYear": "1994",
+            "gkCountSales": 21,
+            "id": "430278001",
+            "maxApartmentCostM2": "3500000",
+            "maxCostMillion": "1456.9",
+            "name": "ДОНСТРОЙ",
+            "orgCountAll": 30,
+            "orgCountSales": 30,
+            "ptCountSales": 0,
+            "rating": "4.5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "4",
+            "rfPlace": "19",
+            "shareRegionPercent": "4.78",
+            "urlId": "donstroj-430278001"
+        },
+        {
+            "apartmentsCountAll": 7445,
+            "apartmentsCountSales": 7445,
+            "buildingVolume": "741325",
+            "coefficientRating": "33.1",
+            "complexesCountAll": 18,
+            "complexesCountSales": 18,
+            "filteredApartmentsCount": 7445,
+            "filteredComplexCount": 18,
+            "filteredGkCount": 18,
+            "filteredOrgCount": 17,
+            "filteredPtCount": 0,
+            "foundationYear": "2005",
+            "gkCountSales": 18,
+            "id": "755344001",
+            "maxApartmentCostM2": "1707000",
+            "maxCostMillion": "245.4",
+            "name": "ГК ФСК",
+            "orgCountAll": 17,
+            "orgCountSales": 17,
+            "ptCountSales": 0,
+            "rating": "4",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "5",
+            "rfPlace": "5",
+            "shareRegionPercent": "4.45",
+            "urlId": "gruppa-kompanij-fsk-755344001"
+        },
+        {
+            "apartmentsCountAll": 7414,
+            "apartmentsCountSales": 7414,
+            "buildingVolume": "605520",
+            "coefficientRating": "27.03",
+            "complexesCountAll": 18,
+            "complexesCountSales": 18,
+            "filteredApartmentsCount": 7414,
+            "filteredComplexCount": 18,
+            "filteredGkCount": 18,
+            "filteredOrgCount": 18,
+            "filteredPtCount": 0,
+            "foundationYear": "2016",
+            "gkCountSales": 18,
+            "id": "6150430001",
+            "maxApartmentCostM2": "5887861",
+            "maxCostMillion": "1614.5",
+            "name": "Level Group",
+            "orgCountAll": 18,
+            "orgCountSales": 18,
+            "ptCountSales": 0,
+            "rating": "4.5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "6",
+            "rfPlace": "21",
+            "shareRegionPercent": "3.63",
+            "urlId": "level-group-6150430001"
+        },
+        {
+            "apartmentsCountAll": 18831,
+            "apartmentsCountSales": 18831,
+            "buildingVolume": "597205",
+            "coefficientRating": "26.66",
+            "complexesCountAll": 22,
+            "complexesCountSales": 22,
+            "filteredApartmentsCount": 18831,
+            "filteredComplexCount": 22,
+            "filteredGkCount": 20,
+            "filteredOrgCount": 8,
+            "filteredPtCount": 2,
+            "foundationYear": "1992",
+            "gkCountSales": 20,
+            "id": "1075233001",
+            "maxApartmentCostM2": "809978",
+            "maxCostMillion": "59.6",
+            "name": "ГК А101",
+            "orgCountAll": 8,
+            "orgCountSales": 8,
+            "ptCountSales": 2,
+            "rating": "4.5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "7",
+            "rfPlace": "22",
+            "shareRegionPercent": "3.58",
+            "urlId": "gruppa-kompanij-a101-1075233001"
+        },
+        {
+            "apartmentsCountAll": 86556,
+            "apartmentsCountSales": 86556,
+            "buildingVolume": "451633",
+            "coefficientRating": "20.16",
+            "complexesCountAll": 3,
+            "complexesCountSales": 3,
+            "filteredApartmentsCount": 86556,
+            "filteredComplexCount": 3,
+            "filteredGkCount": 3,
+            "filteredOrgCount": 5,
+            "filteredPtCount": 0,
+            "foundationYear": "1990",
+            "gkCountSales": 3,
+            "id": "934095001",
+            "maxApartmentCostM2": "3173299",
+            "maxCostMillion": "552.2",
+            "name": "ГК АБСОЛЮТ",
+            "orgCountAll": 5,
+            "orgCountSales": 5,
+            "ptCountSales": 0,
+            "rating": "4.5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "8",
+            "rfPlace": "27",
+            "shareRegionPercent": "2.71",
+            "urlId": "gruppa-kompanij-absoljut-934095001"
+        },
+        {
+            "apartmentsCountAll": 631,
+            "apartmentsCountSales": 631,
+            "buildingVolume": "408286",
+            "coefficientRating": "18.23",
+            "complexesCountAll": 7,
+            "complexesCountSales": 7,
+            "filteredApartmentsCount": 631,
+            "filteredComplexCount": 7,
+            "filteredGkCount": 7,
+            "filteredOrgCount": 6,
+            "filteredPtCount": 0,
+            "foundationYear": "2008",
+            "gkCountSales": 7,
+            "id": "5339663001",
+            "maxApartmentCostM2": "1893900",
+            "maxCostMillion": "588.7",
+            "name": "ГК Страна Девелопмент",
+            "orgCountAll": 6,
+            "orgCountSales": 6,
+            "ptCountSales": 0,
+            "rating": "3.5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "9",
+            "rfPlace": "10",
+            "shareRegionPercent": "2.45",
+            "urlId": "gruppa-kompanij-strana-development-5339663001"
+        },
+        {
+            "apartmentsCountAll": 2358,
+            "apartmentsCountSales": 2358,
+            "buildingVolume": "369553",
+            "coefficientRating": "16.5",
+            "complexesCountAll": 15,
+            "complexesCountSales": 15,
+            "filteredApartmentsCount": 2358,
+            "filteredComplexCount": 15,
+            "filteredGkCount": 15,
+            "filteredOrgCount": 14,
+            "filteredPtCount": 0,
+            "foundationYear": "2004",
+            "gkCountSales": 15,
+            "id": "6201034001",
+            "maxApartmentCostM2": "1402500",
+            "maxCostMillion": "214.9",
+            "name": "ГК ОСНОВА",
+            "orgCountAll": 14,
+            "orgCountSales": 14,
+            "ptCountSales": 0,
+            "rating": "4.5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "10",
+            "rfPlace": "36",
+            "shareRegionPercent": "2.22",
+            "urlId": "gruppa-kompanij-osnova-6201034001"
+        },
+        {
+            "apartmentsCountAll": 620,
+            "apartmentsCountSales": 620,
+            "buildingVolume": "348043",
+            "coefficientRating": "15.54",
+            "complexesCountAll": 5,
+            "complexesCountSales": 5,
+            "filteredApartmentsCount": 620,
+            "filteredComplexCount": 5,
+            "filteredGkCount": 5,
+            "filteredOrgCount": 5,
+            "filteredPtCount": 0,
+            "foundationYear": "2004",
+            "gkCountSales": 5,
+            "id": "733498001",
+            "maxApartmentCostM2": "1020137",
+            "maxCostMillion": "181.9",
+            "name": "Брусника",
+            "orgCountAll": 5,
+            "orgCountSales": 5,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "11",
+            "rfPlace": "8",
+            "shareRegionPercent": "2.09",
+            "urlId": "brusnika-733498001"
+        },
+        {
+            "apartmentsCountAll": 26620,
+            "apartmentsCountSales": 26620,
+            "buildingVolume": "342826",
+            "coefficientRating": "15.3",
+            "complexesCountAll": 12,
+            "complexesCountSales": 12,
+            "filteredApartmentsCount": 26620,
+            "filteredComplexCount": 12,
+            "filteredGkCount": 12,
+            "filteredOrgCount": 8,
+            "filteredPtCount": 0,
+            "foundationYear": "1993",
+            "gkCountSales": 12,
+            "id": "429468001",
+            "maxApartmentCostM2": "3526646",
+            "maxCostMillion": "450.0",
+            "name": "Группа ЛСР",
+            "orgCountAll": 8,
+            "orgCountSales": 8,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "12",
+            "rfPlace": "11",
+            "shareRegionPercent": "2.06",
+            "urlId": "gruppa-lsr-429468001"
+        },
+        {
+            "apartmentsCountAll": 2175,
+            "apartmentsCountSales": 2175,
+            "buildingVolume": "310101",
+            "coefficientRating": "13.84",
+            "complexesCountAll": 10,
+            "complexesCountSales": 10,
+            "filteredApartmentsCount": 2175,
+            "filteredComplexCount": 10,
+            "filteredGkCount": 10,
+            "filteredOrgCount": 11,
+            "filteredPtCount": 0,
+            "foundationYear": "1992",
+            "gkCountSales": 10,
+            "id": "955386001",
+            "maxApartmentCostM2": "816360",
+            "maxCostMillion": "67.9",
+            "name": "ГК Гранель",
+            "orgCountAll": 11,
+            "orgCountSales": 11,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "13",
+            "rfPlace": "16",
+            "shareRegionPercent": "1.86",
+            "urlId": "gruppa-kompanij-granel-955386001"
+        },
+        {
+            "apartmentsCountAll": 1268,
+            "apartmentsCountSales": 1268,
+            "buildingVolume": "280348",
+            "coefficientRating": "12.52",
+            "complexesCountAll": 396,
+            "complexesCountSales": 396,
+            "filteredApartmentsCount": 1268,
+            "filteredComplexCount": 395,
+            "filteredGkCount": 395,
+            "filteredOrgCount": 1,
+            "filteredPtCount": 0,
+            "foundationYear": "2017",
+            "gkCountSales": 396,
+            "id": "14543898001",
+            "maxApartmentCostM2": "1025429",
+            "maxCostMillion": "119.5",
+            "name": "Фонд реновации",
+            "orgCountAll": 1,
+            "orgCountSales": 1,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "14",
+            "rfPlace": "57",
+            "shareRegionPercent": "1.68",
+            "urlId": "moskovskij-fond-renovacii-zhiloj-zastrojki-14543898001"
+        },
+        {
+            "apartmentsCountAll": 1120,
+            "apartmentsCountSales": 1120,
+            "buildingVolume": "266873",
+            "coefficientRating": "11.91",
+            "complexesCountAll": 7,
+            "complexesCountSales": 7,
+            "filteredApartmentsCount": 1120,
+            "filteredComplexCount": 7,
+            "filteredGkCount": 7,
+            "filteredOrgCount": 7,
+            "filteredPtCount": 0,
+            "foundationYear": "1995",
+            "gkCountSales": 7,
+            "id": "1961151001",
+            "maxApartmentCostM2": "1100000",
+            "maxCostMillion": "237.4",
+            "name": "ГК Главстрой",
+            "orgCountAll": 7,
+            "orgCountSales": 7,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "15",
+            "rfPlace": "64",
+            "shareRegionPercent": "1.6",
+            "urlId": "gruppa-kompanij-glavstroj-1961151001"
+        },
+        {
+            "apartmentsCountAll": 1455,
+            "apartmentsCountSales": 1455,
+            "buildingVolume": "253658",
+            "coefficientRating": "11.32",
+            "complexesCountAll": 8,
+            "complexesCountSales": 8,
+            "filteredApartmentsCount": 1455,
+            "filteredComplexCount": 8,
+            "filteredGkCount": 8,
+            "filteredOrgCount": 8,
+            "filteredPtCount": 0,
+            "foundationYear": "2003",
+            "gkCountSales": 8,
+            "id": "391375001",
+            "maxApartmentCostM2": "1413142",
+            "maxCostMillion": "142.7",
+            "name": "Группа Аквилон",
+            "orgCountAll": 8,
+            "orgCountSales": 8,
+            "ptCountSales": 0,
+            "rating": "5",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "16",
+            "rfPlace": "18",
+            "shareRegionPercent": "1.52",
+            "urlId": "gruppa-akvilon-391375001"
+        },
+        {
+            "apartmentsCountAll": 8661,
+            "apartmentsCountSales": 8661,
+            "buildingVolume": "246967",
+            "coefficientRating": "11.03",
+            "complexesCountAll": 36,
+            "complexesCountSales": 36,
+            "filteredApartmentsCount": 8661,
+            "filteredComplexCount": 36,
+            "filteredGkCount": 36,
+            "filteredOrgCount": 36,
+            "filteredPtCount": 0,
+            "foundationYear": "1987",
+            "gkCountSales": 36,
+            "id": "1331499001",
+            "maxApartmentCostM2": "2101928",
+            "maxCostMillion": "325.3",
+            "name": "Группа Эталон",
+            "orgCountAll": 36,
+            "orgCountSales": 36,
+            "ptCountSales": 0,
+            "rating": "4",
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "17",
+            "rfPlace": "13",
+            "shareRegionPercent": "1.48",
+            "urlId": "gruppa-etalon-1331499001"
+        },
+        {
+            "apartmentsCountAll": 588,
+            "apartmentsCountSales": 588,
+            "buildingVolume": "199002",
+            "coefficientRating": "8.88",
+            "complexesCountAll": 9,
+            "complexesCountSales": 9,
+            "filteredApartmentsCount": 588,
+            "filteredComplexCount": 9,
+            "filteredGkCount": 9,
+            "filteredOrgCount": 9,
+            "filteredPtCount": 0,
+            "foundationYear": "1995",
+            "gkCountSales": 9,
+            "id": "3126628001",
+            "maxApartmentCostM2": "1178700",
+            "maxCostMillion": "113.3",
+            "name": "Мангазея",
+            "orgCountAll": 9,
+            "orgCountSales": 9,
+            "ptCountSales": 0,
+            "region": "г.Москва",
+            "regionKey": "143443001",
+            "regionPlace": "18",
+            "rfPlace": "93",
+            "shareRegionPercent": "1.19",
+            "urlId": "mangazeja-3126628001"
+        }
+    ]
+}
+
+из него мы сохраняем для каждого региона список застройщиков с полями:
+
+
+   
+            "id": "3126628001",
+            "name": "Мангазея",
+            "region": "г.Москва",
+            "regionKey": "143443001"
+            "urlId": "mangazeja-3126628001"
+
+
+делая такие запросы надо составить реестр застройщиков 
+из полей 
+"id": "3126628001",
+            "name": "Мангазея",
+            "region": "г.Москва",
+            "regionKey": "143443001"
+            "urlId": "mangazeja-3126628001"
+
+
+при этом может получиться так что в разных регионах будет один и тот же застройщик с одним и тем же 
+"id": "3126628001",
+            "name": "Мангазея", "urlId": "mangazeja-3126628001" но разными "region": "г.Москва",
+            "regionKey": "143443001"
+
+в таком случае каждый застройщик вставляется в базу единожды (дедублицируем)
+с данынми 
+"id": "3126628001",
+            "name": "Мангазея", "urlId": "mangazeja-3126628001" 
+а в поля "region": "г.Москва",
+            "regionKey": "143443001" для него надо вставить вложенный массив содержащий все встретившиеся у данного застройщика сочетания ключей region + regionKey
+
+
+далее мы для каждого найденного застройщика делаем запросы для получения наименования и данных Застройщиков
+в группе компаний
+
+те данные компаний входящих в группу застройщиков
+
+Запросы 
+:method: GET
+:scheme: https
+:authority: erzrf.ru
+:path: /erz-rest/api/v1/developer/join/429726001?region=moskva&regionKey=143443001&costType=1
+Accept: application/json, text/plain, */*
+Sec-Fetch-Site: same-origin
+Cookie: _ym_visorc=b; ufCookies=860bdab0-8aba-11f1-afc7-5116b74fb462; _ym_fa=11106.DiQcnNJhHUUQNKVae0zG2O6GPVlFzdaFJitL2Khp5wDdaO50N4f0zwtMjLmt3X0R.FpVdLQtUPiV-jywaGg0DEPcbZu4%2C; _ym_d=1785265812; _ym_isad=2; _ym_uid=1785265812363746836
+Sec-Fetch-Dest: empty
+Accept-Language: ru
+Sec-Fetch-Mode: cors
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15
+Accept-Encoding: gzip, deflate, br, zstd
+Referer: https://erzrf.ru/zastroyschiki?region=moskva&regionKey=143443001&costType=1&viewModeDev=list
+Priority: u=3, i
+
+ответ
+:status: 200
+Content-Type: application/json
+Pragma: no-cache
+X-XSS-Protection: 0
+Content-Encoding: gzip
+Expires: 0
+Referrer-Policy: origin-when-cross-origin
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Date: Tue, 28 Jul 2026 19:36:21 GMT
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Vary: Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+x-cache-status: HIT
+Server: nginx
+
+Параметры строки запроса
+region: moskva
+regionKey: 143443001
+costType: 1
+
+те в теле будет каждый регион для указанного застройщика если их у него несколько но только те регионы где он присутствует
+
+а :path: /erz-rest/api/v1/developer/join/429726001?region=moskva&regionKey=143443001&costType=1 для запроса формируем из данных по застройщику 
+/join/429726001 = это и есть полученный "id": "429726001", из запросов join
+
+
+ответ будет таким
+[{
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 190,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "27063",
+    "capital": "10000",
+    "filteredApartmentsCount": 215,
+    "filteredComplexCount": 3,
+    "filteredGkCount": 3,
+    "filteredPtCount": 0,
+    "foundationYear": "2003",
+    "gkCountSales": 3,
+    "id": "150557001",
+    "inn": "7701511447",
+    "maxApartmentCostM2": "87.3",
+    "maxCostMillion": "26.5",
+    "name": "ООО Специализированный застройщик Териберский Бере",
+    "ogrn": "1037739970773",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-teriberskij-bereg-150557001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1748,
+    "apartmentsCountSales": 1151,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "300000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2003",
+    "gkCountSales": 2,
+    "id": "346174001",
+    "inn": "7714192290",
+    "name": "ООО Мортон-РСО",
+    "ogrn": "1037739781200",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-morton-rso-346174001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 6158,
+    "apartmentsCountSales": 1264,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "4128108400",
+    "filteredApartmentsCount": 5,
+    "filteredComplexCount": 9,
+    "filteredGkCount": 9,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 9,
+    "id": "490190001",
+    "inn": "7713011336",
+    "maxApartmentCostM2": "73.4",
+    "maxCostMillion": "33.1",
+    "name": "ПАО ПИК СЗ",
+    "ogrn": "1027739137084",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "pao-gruppa-kompanij-pik-490190001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 189,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "50000000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2007",
+    "gkCountSales": 1,
+    "id": "893920001",
+    "inn": "5003070083",
+    "name": "ООО Мортон-Юг",
+    "ogrn": "1075003008464",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-morton-jug-893920001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 20,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "0",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1995",
+    "gkCountSales": 1,
+    "id": "2746040001",
+    "inn": "7704114504",
+    "name": "НО НИПП Ассоциация Народное домостроение",
+    "ogrn": "1027700236937",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "no-nauchno-issledovatelskaja-proektno-proizvodstvennaja-associacija-narodnoe-domostroenie-2746040001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 11,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "9840000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1999",
+    "gkCountSales": 1,
+    "id": "3050529001",
+    "inn": "7705337630",
+    "name": "ООО Вейстоун",
+    "ogrn": "1027739235556",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-vejstoun-3050529001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 123,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "0",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2005",
+    "gkCountSales": 1,
+    "id": "3071824001",
+    "inn": "7704271480",
+    "name": "Общественное объединение МКПП (Р)",
+    "ogrn": "1057700019475",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "obshhestvennoe-obedinenie-regionalnoe-obedinenie-rabotodatelej-goroda-federalnogo-znachenija-moskvy-"
+}, {
+    "address": "г.Москва, город Зеленоград",
+    "apartmentsCountAll": 1046,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "27752",
+    "capital": "250000",
+    "filteredApartmentsCount": 138,
+    "filteredComplexCount": 2,
+    "filteredGkCount": 2,
+    "filteredPtCount": 0,
+    "foundationYear": "2014",
+    "gkCountSales": 2,
+    "id": "3295470001",
+    "inn": "5024147530",
+    "maxApartmentCostM2": "83.6",
+    "maxCostMillion": "41.4",
+    "name": "ООО Специализированный застройщик ПрометейСити",
+    "ogrn": "1145024006490",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-prometejsiti-3295470001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1226,
+    "apartmentsCountSales": 201,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "1499510000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 2,
+    "filteredGkCount": 2,
+    "filteredPtCount": 0,
+    "foundationYear": "2007",
+    "gkCountSales": 2,
+    "id": "3794730001",
+    "inn": "7722621810",
+    "name": "ООО ТехноСтрой",
+    "ogrn": "1077759474704",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-tekhnostroj-3794730001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 55,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "12320",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1993",
+    "gkCountSales": 1,
+    "id": "3851258001",
+    "inn": "7725038614",
+    "name": "АО 3-Й ТАКСОМОТОРНЫЙ ПАРК",
+    "ogrn": "1027739148304",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-3-j-taksomotornyj-park-3851258001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 1583,
+    "apartmentsCountSales": 491,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "41894",
+    "capital": "100000",
+    "filteredApartmentsCount": 136,
+    "filteredComplexCount": 10,
+    "filteredGkCount": 10,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 10,
+    "id": "3851457001",
+    "inn": "7718122544",
+    "maxApartmentCostM2": "102.9",
+    "maxCostMillion": "50.9",
+    "name": "АО Специализированный застройщик МОНЕТЧИК",
+    "ogrn": "1027739584400",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "zao-monetchik-3851457001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1298,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "875102562",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2013",
+    "gkCountSales": 1,
+    "id": "3851500001",
+    "inn": "7729755852",
+    "name": "АО ПИК-ИНДУСТРИЯ",
+    "ogrn": "5137746021012",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-pik-industrija-3851500001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 553,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "64790",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1995",
+    "gkCountSales": 1,
+    "id": "4291272001",
+    "inn": "7723025105",
+    "name": "АО Межрегионоптторг",
+    "ogrn": "1027739317836",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-mezhregionopttorg-4291272001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 82,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "5000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 2,
+    "filteredGkCount": 2,
+    "filteredPtCount": 0,
+    "foundationYear": "1994",
+    "gkCountSales": 2,
+    "id": "4497019001",
+    "inn": "7731138751",
+    "name": "АО Специализированный застройщик Кунцево-Инвест",
+    "ogrn": "1027739026204",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "zao-kuncevo-invest-4497019001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 3,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "133984",
+    "capital": "10000",
+    "filteredApartmentsCount": 1638,
+    "filteredComplexCount": 2,
+    "filteredGkCount": 2,
+    "filteredPtCount": 0,
+    "foundationYear": "2013",
+    "gkCountSales": 2,
+    "id": "5494384001",
+    "inn": "7702815127",
+    "maxApartmentCostM2": "126.8",
+    "maxCostMillion": "32.5",
+    "name": "АО СЗ ПФК",
+    "ogrn": "1137746417830",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "zao-pticefabrika-krasnogorskaja-5494384001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 4790,
+    "apartmentsCountSales": 1128,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "259496",
+    "capital": "359840000",
+    "filteredApartmentsCount": 60146,
+    "filteredComplexCount": 3,
+    "filteredGkCount": 3,
+    "filteredPtCount": 0,
+    "foundationYear": "2016",
+    "gkCountSales": 3,
+    "id": "5666484001",
+    "inn": "7709490911",
+    "maxApartmentCostM2": "101.8",
+    "maxCostMillion": "34.4",
+    "minApartmentCostM2": "269225",
+    "minCostMillion": "11.2",
+    "name": "ООО Специализированный застройщик Тирон",
+    "ogrn": "1167746411799",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-tiron-5666484001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 48,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "368000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2005",
+    "gkCountSales": 1,
+    "id": "5901269001",
+    "inn": "7703386671",
+    "name": "АО Стройпроект",
+    "ogrn": "1057706087042",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "zao-strojproekt-5901269001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 93,
+    "apartmentsCountSales": 1,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "13619",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1994",
+    "gkCountSales": 1,
+    "id": "5901761001",
+    "inn": "7714008255",
+    "name": "АО ЖБИ-23",
+    "ogrn": "1027700207391",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-zavod-zhelezobetonnykh-izdelij-№23-5901761001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 957,
+    "apartmentsCountSales": 60,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "1351443998",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2010",
+    "gkCountSales": 1,
+    "id": "6290288001",
+    "inn": "7730626844",
+    "name": "АО Порт-Сити",
+    "ogrn": "1107746444189",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-port-siti-6290288001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1757,
+    "apartmentsCountSales": 424,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "110000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 1,
+    "id": "6925847001",
+    "inn": "7715152910",
+    "name": "АО ХК Суихолдинг",
+    "ogrn": "1027700104410",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-kholdingovaja-kompanija-suikholding-6925847001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1358,
+    "apartmentsCountSales": 739,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "193577700",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2010",
+    "gkCountSales": 1,
+    "id": "6926849001",
+    "inn": "7715842640",
+    "name": "АО Специализированный застройщик ЛЗСМИК",
+    "ogrn": "5107746016021",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-losinoostrovskij-zavod-stroitelnykh-materialov-i-konstrukcij-6926849001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 802,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "10000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2007",
+    "gkCountSales": 1,
+    "id": "8886652001",
+    "inn": "7703637519",
+    "name": "ООО ГП-Реновация",
+    "ogrn": "5077746981076",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-park-presnja-8886652001"
+}, {
+    "address": "Московская область, г. Красногорск",
+    "apartmentsCountAll": 1255,
+    "apartmentsCountSales": 324,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "2033481450",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2013",
+    "gkCountSales": 1,
+    "id": "9075171001",
+    "inn": "5024139770",
+    "name": "ООО СК Жилиндустрия",
+    "ogrn": "1135024006864",
+    "ptCountSales": 0,
+    "regionKey": "143449001",
+    "urlId": "ooo-sk-zhilindustrija-9075171001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 1836,
+    "apartmentsCountSales": 1017,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "60043",
+    "capital": "1010000",
+    "filteredApartmentsCount": 7619,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2017",
+    "gkCountSales": 1,
+    "id": "9154202001",
+    "inn": "7703433829",
+    "maxApartmentCostM2": "92.1",
+    "maxCostMillion": "32.3",
+    "name": "ООО СЗ Люблино Девелопмент",
+    "ogrn": "1177746995183",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-ljublino-development-9154202001"
+}, {
+    "address": "г.Москва, дер. Марьино",
+    "apartmentsCountAll": 1237,
+    "apartmentsCountSales": 584,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "263210000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 1,
+    "id": "9171262001",
+    "inn": "7715343785",
+    "name": "ООО Борец",
+    "ogrn": "1027739050239",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-borec-9171262001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 704,
+    "apartmentsCountSales": 140,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "1500000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2018",
+    "gkCountSales": 1,
+    "id": "10012747001",
+    "inn": "7722458402",
+    "name": "АО Специализированный застройщик Столичный комплек",
+    "ogrn": "1187746458998",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-stolichnyj-kompleks-10012747001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 429,
+    "apartmentsCountSales": 356,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "322100000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2014",
+    "gkCountSales": 1,
+    "id": "11959465001",
+    "inn": "7728900666",
+    "name": "ООО Специализированный застройщик М.Строй",
+    "ogrn": "1147748028218",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-mstroj-11959465001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 183,
+    "apartmentsCountSales": 155,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "20000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2015",
+    "gkCountSales": 1,
+    "id": "13067741001",
+    "inn": "5406589379",
+    "name": "ООО Специализированный Застройщик Легро",
+    "ogrn": "1155476082475",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-legro-13067741001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 35,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "240000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2005",
+    "gkCountSales": 1,
+    "id": "13434019001",
+    "inn": "7727543940",
+    "name": "ООО Специализированный застройщик Солнцево парк",
+    "ogrn": "1057747133080",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-solncevo-park-13434019001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 204,
+    "apartmentsCountSales": 202,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "20480",
+    "capital": "81000000",
+    "filteredApartmentsCount": 1183,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2010",
+    "gkCountSales": 1,
+    "id": "14415501001",
+    "inn": "7722311022",
+    "maxApartmentCostM2": "85.4",
+    "maxCostMillion": "35.1",
+    "name": "АО Специализированный застройщик Волжский Парк",
+    "ogrn": "1106453003227",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-volzhskij-park-14415501001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 93,
+    "apartmentsCountSales": 88,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "3171991601",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2019",
+    "gkCountSales": 1,
+    "id": "14651498001",
+    "inn": "7707303732",
+    "name": "ООО Специализированный застройщик Волоколамское шо",
+    "ogrn": "1027739108022",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-agramant-14651498001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 119,
+    "apartmentsCountSales": 117,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "45629",
+    "capital": "250000",
+    "filteredApartmentsCount": 2856,
+    "filteredComplexCount": 2,
+    "filteredGkCount": 2,
+    "filteredPtCount": 0,
+    "foundationYear": "2013",
+    "gkCountSales": 2,
+    "id": "14959090001",
+    "inn": "7714911058",
+    "maxApartmentCostM2": "88.5",
+    "maxCostMillion": "23.3",
+    "name": "ООО СЗ Середнево",
+    "ogrn": "1137746624828",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-serednevo-14959090001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 4,
+    "apartmentsCountSales": 4,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "46597",
+    "capital": "12592840",
+    "filteredApartmentsCount": 2380,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1992",
+    "gkCountSales": 1,
+    "id": "15097338001",
+    "inn": "7718083824",
+    "maxApartmentCostM2": "90.7",
+    "maxCostMillion": "32.8",
+    "name": "АО СЗ ГЛОРИ",
+    "ogrn": "1027739733328",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-glori-15097338001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 1,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "19989",
+    "capital": "46288086",
+    "filteredApartmentsCount": 111,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1997",
+    "gkCountSales": 1,
+    "id": "15114476001",
+    "inn": "7715168050",
+    "maxApartmentCostM2": "81.1",
+    "maxCostMillion": "30.7",
+    "name": "АО СЗ Радуга",
+    "ogrn": "1027700092078",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-raduga-15114476001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "11078000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2016",
+    "gkCountSales": 1,
+    "id": "15250064001",
+    "inn": "9729037439",
+    "name": "ООО Специализированный застройщик Большая Очаковск",
+    "ogrn": "5167746309231",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-bolshaja-ochakovskaja-15250064001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 2,
+    "apartmentsCountSales": 2,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "10000",
+    "filteredApartmentsCount": 42,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2005",
+    "gkCountSales": 1,
+    "id": "15287539001",
+    "inn": "7713565239",
+    "maxApartmentCostM2": "85.9",
+    "maxCostMillion": "35.8",
+    "name": "ООО Специализированный застройщик Лихоборы",
+    "ogrn": "1057748248480",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-likhobory-15287539001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "21811",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2003",
+    "gkCountSales": 1,
+    "id": "15287738001",
+    "inn": "7722002722",
+    "name": "АО Специализированный застройщик Красноказарменная",
+    "ogrn": "1037739259623",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-khlebozavod-№-12-15287738001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "227060000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2008",
+    "gkCountSales": 1,
+    "id": "15487683001",
+    "inn": "7813410486",
+    "name": "ООО СЗ Симоновская Набережная",
+    "ogrn": "1089847137049",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-neva-inform-15487683001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 2,
+    "apartmentsCountSales": 2,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "24411",
+    "capital": "10000",
+    "filteredApartmentsCount": 819,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2019",
+    "gkCountSales": 1,
+    "id": "15772549001",
+    "inn": "9718128966",
+    "maxApartmentCostM2": "83.2",
+    "maxCostMillion": "38.2",
+    "name": "ООО СЗ ПЛАМ",
+    "ogrn": "1197746104082",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-plam-15772549001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 1,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "20160",
+    "filteredApartmentsCount": 24,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1994",
+    "gkCountSales": 1,
+    "id": "15795347001",
+    "inn": "7724068253",
+    "maxApartmentCostM2": "82.8",
+    "maxCostMillion": "32.1",
+    "name": "АО СЗ АК16",
+    "ogrn": "1027700394633",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-ak16-15795347001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "14008200",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2010",
+    "gkCountSales": 1,
+    "id": "15795413001",
+    "inn": "7722729405",
+    "name": "АО Специализированный застройщик Новохохловская 15",
+    "ogrn": "1107746827187",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-novokhokhlovskaja-15-15795413001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 1,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "88403",
+    "capital": "35000",
+    "filteredApartmentsCount": 2272,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "15801201001",
+    "inn": "9729298039",
+    "maxApartmentCostM2": "84.6",
+    "maxCostMillion": "37.9",
+    "name": "ООО Специализированный застройщик Озёрная 44",
+    "ogrn": "1207700249965",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ozyornaja-44-15801201001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 2,
+    "apartmentsCountSales": 2,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "53050",
+    "capital": "190831000",
+    "filteredApartmentsCount": 730,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2005",
+    "gkCountSales": 1,
+    "id": "15826066001",
+    "inn": "7743555005",
+    "maxApartmentCostM2": "82.7",
+    "maxCostMillion": "36.4",
+    "name": "АО Специализированный застройщик Ижорская",
+    "ogrn": "1057746552115",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-izhorskaja-15826066001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 4,
+    "apartmentsCountSales": 4,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "135409",
+    "filteredApartmentsCount": 745,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2001",
+    "gkCountSales": 1,
+    "id": "15869890001",
+    "inn": "7712023890",
+    "maxApartmentCostM2": "93.4",
+    "maxCostMillion": "37.6",
+    "name": "АО СЗ МАК8",
+    "ogrn": "1037739342486",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-mak8-15869890001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 2,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "10000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2003",
+    "gkCountSales": 1,
+    "id": "17008430001",
+    "inn": "7722291048",
+    "name": "ООО СЗ Горизонт",
+    "ogrn": "1037722022843",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-gorizont-17008430001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 1,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "108438500",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2010",
+    "gkCountSales": 1,
+    "id": "17012880001",
+    "inn": "7709868551",
+    "name": "АО Специализированный застройщик Перовское",
+    "ogrn": "5107746062232",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-perovskoe-17012880001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "60088050",
+    "filteredApartmentsCount": 8,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1992",
+    "gkCountSales": 1,
+    "id": "17727697001",
+    "inn": "7716079163",
+    "maxApartmentCostM2": "91.3",
+    "maxCostMillion": "40.4",
+    "name": "АО СЗ Стройдеталь",
+    "ogrn": "1027739132662",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-strojdetal-17727697001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "8141496",
+    "filteredApartmentsCount": 2,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 1,
+    "id": "18010444001",
+    "inn": "7730014256",
+    "maxApartmentCostM2": "28.2",
+    "maxCostMillion": "18.9",
+    "name": "АО СЗ ФИЛИТ",
+    "ogrn": "1027700216609",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-filit-18010444001"
+}, {
+    "address": "Московская область, пос. Беляная Гора (в составе г. о. Руза)",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "75650000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1993",
+    "gkCountSales": 1,
+    "id": "18502038001",
+    "inn": "7718014387",
+    "name": "АО СПЕЦИАЛИЗИРОВАННЫЙ ЗАСТРОЙЩИК СОКОЛЬНИЧЕСКИЙ ВА",
+    "ogrn": "1027700100537",
+    "ptCountSales": 0,
+    "regionKey": "143449001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-sokolnicheskij-val-18502038001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "121687",
+    "capital": "1000000",
+    "filteredApartmentsCount": 1236,
+    "filteredComplexCount": 3,
+    "filteredGkCount": 3,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 3,
+    "id": "18562550001",
+    "inn": "7743345103",
+    "maxApartmentCostM2": "118.6",
+    "maxCostMillion": "68.4",
+    "name": "ООО СЗ Центрполис",
+    "ogrn": "1207700284296",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-centrpolis-18562550001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "11112",
+    "capital": "700199393",
+    "filteredApartmentsCount": 294,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2014",
+    "gkCountSales": 1,
+    "id": "18940617001",
+    "inn": "7707829194",
+    "maxApartmentCostM2": "84.6",
+    "maxCostMillion": "32.0",
+    "name": "ООО СЗ Перспективные Инвестиции",
+    "ogrn": "1147746300591",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-perspektivnye-investicii-18940617001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "50937",
+    "capital": "5000000",
+    "filteredApartmentsCount": 276,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2015",
+    "gkCountSales": 1,
+    "id": "20363975001",
+    "inn": "7743039385",
+    "maxApartmentCostM2": "85.9",
+    "maxCostMillion": "35.7",
+    "name": "ООО СЗ Тратта-Центр",
+    "ogrn": "1157746021730",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-tratta-centr-20363975001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "125608",
+    "capital": "281500000",
+    "filteredApartmentsCount": 2154,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 1,
+    "id": "20848937001",
+    "inn": "7735092843",
+    "maxApartmentCostM2": "90.5",
+    "maxCostMillion": "26.1",
+    "name": "АО Специализированный застройщик Зеленоградский",
+    "ogrn": "1027739388511",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-zelenogradskij-20848937001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "59978",
+    "capital": "35000",
+    "filteredApartmentsCount": 968,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2018",
+    "gkCountSales": 1,
+    "id": "20886510001",
+    "inn": "7743272279",
+    "maxApartmentCostM2": "88.6",
+    "maxCostMillion": "38.5",
+    "name": "АО Специализированный застройщик Торговый дом Спут",
+    "ogrn": "1187746788833",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-torgovyj-dom-sputnik-20886510001"
+}, {
+    "address": "Московская область, г. Наро-Фоминск",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "367862000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2015",
+    "gkCountSales": 1,
+    "id": "20958082001",
+    "inn": "5030084705",
+    "name": "ООО Специализированный застройщик Сфера",
+    "ogrn": "1155030000311",
+    "ptCountSales": 0,
+    "regionKey": "143449001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-sfera-20958082001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "59491",
+    "capital": "4894521000",
+    "filteredApartmentsCount": 730,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "21090953001",
+    "inn": "7716950920",
+    "maxApartmentCostM2": "82.7",
+    "maxCostMillion": "36.4",
+    "name": "ООО СЗ Авангард",
+    "ogrn": "1207700418640",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-avangard-21090953001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "30000",
+    "filteredApartmentsCount": 14,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2019",
+    "gkCountSales": 1,
+    "id": "21204794001",
+    "inn": "7722477370",
+    "maxApartmentCostM2": "79.6",
+    "maxCostMillion": "28.3",
+    "name": "АО Специализированный застройщик Триал Сервис",
+    "ogrn": "1197746457556",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-trial-servis-21204794001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "5062123376",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2019",
+    "gkCountSales": 1,
+    "id": "21334729001",
+    "inn": "9718130027",
+    "name": "ООО СЗ МПЖБ-18",
+    "ogrn": "1197746131076",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-mpzhb-18-21334729001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "23181520",
+    "filteredApartmentsCount": 802,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2016",
+    "gkCountSales": 1,
+    "id": "21375578001",
+    "inn": "7723456045",
+    "maxApartmentCostM2": "92.1",
+    "maxCostMillion": "32.3",
+    "name": "ООО СЗ ИТЭ",
+    "ogrn": "1167746610646",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ite-21375578001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "11996",
+    "filteredApartmentsCount": 8,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "1993",
+    "gkCountSales": 1,
+    "id": "21375785001",
+    "inn": "7724024312",
+    "maxApartmentCostM2": "82.8",
+    "maxCostMillion": "32.1",
+    "name": "АО СЗ ПЛАСТПОЛИТЕН",
+    "ogrn": "1027700008742",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-plastpoliten-21375785001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "68131",
+    "capital": "13053240",
+    "filteredApartmentsCount": 476,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 1,
+    "id": "21747003001",
+    "inn": "7715030599",
+    "maxApartmentCostM2": "76.4",
+    "maxCostMillion": "28.8",
+    "name": "АО СЗ ТМП №20",
+    "ogrn": "1027739037457",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ao-specializirovannyj-zastrojshhik-tmp-№20-21747003001"
+}, {
+    "address": "г.Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "1500100000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "21843712001",
+    "inn": "9709067315",
+    "name": "ООО Специализированный Застройщик Фарамант",
+    "ogrn": "1207700449186",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-faramant-21843712001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "capital": "59010000",
+    "filteredApartmentsCount": 130,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2016",
+    "gkCountSales": 1,
+    "id": "21863696001",
+    "inn": "7722367378",
+    "maxApartmentCostM2": "70.5",
+    "maxCostMillion": "32.3",
+    "name": "ООО СЗ ДРСУ-34",
+    "ogrn": "1167746577481",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-drsu-34-21863696001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "44228",
+    "capital": "1156603000",
+    "filteredApartmentsCount": 486,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2014",
+    "gkCountSales": 1,
+    "id": "22256499001",
+    "inn": "7715988656",
+    "maxApartmentCostM2": "93.2",
+    "maxCostMillion": "33.3",
+    "name": "ООО СЗ Перспективные решения",
+    "ogrn": "1147746026801",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-perspektivnye-reshenija-22256499001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "44118",
+    "capital": "1348172826",
+    "filteredApartmentsCount": 266,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2002",
+    "gkCountSales": 1,
+    "id": "22690002001",
+    "inn": "7729326349",
+    "maxApartmentCostM2": "137.4",
+    "maxCostMillion": "122.7",
+    "minApartmentCostM2": "462231",
+    "minCostMillion": "19.2",
+    "name": "ООО СЗ Риверсайд",
+    "ogrn": "1027700206159",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-riversajd-22690002001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "108699",
+    "capital": "50000",
+    "filteredApartmentsCount": 570,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2019",
+    "gkCountSales": 1,
+    "id": "22807398001",
+    "inn": "9709044935",
+    "maxApartmentCostM2": "159.4",
+    "maxCostMillion": "116.2",
+    "minApartmentCostM2": "436400",
+    "minCostMillion": "19.0",
+    "name": "ООО СЗ Часовая",
+    "ogrn": "1197746127215",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-chasovaja-22807398001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "75579",
+    "capital": "1100100000",
+    "filteredApartmentsCount": 296,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "23176062001",
+    "inn": "7716948832",
+    "maxApartmentCostM2": "160.7",
+    "maxCostMillion": "120.0",
+    "minApartmentCostM2": "416220",
+    "minCostMillion": "21.5",
+    "name": "ООО СЗ Созвездие",
+    "ogrn": "1207700287398",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-sozvezdie-23176062001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "63794",
+    "capital": "7108151984",
+    "filteredApartmentsCount": 33,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2013",
+    "gkCountSales": 1,
+    "id": "24531511001",
+    "inn": "7720799799",
+    "maxApartmentCostM2": "67.2",
+    "maxCostMillion": "31.6",
+    "name": "ООО СЗ Ясеневый парк",
+    "ogrn": "5137746208694",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-jasenevyj-park-24531511001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "80879",
+    "capital": "408163.27",
+    "filteredApartmentsCount": 1062,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "25020200001",
+    "inn": "9715391937",
+    "maxApartmentCostM2": "83.9",
+    "maxCostMillion": "28.0",
+    "name": "ООО СЗ Л-Девелопмент",
+    "ogrn": "1207700405021",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-l-development-25020200001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "94538",
+    "filteredApartmentsCount": 396,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2007",
+    "gkCountSales": 1,
+    "id": "25373244001",
+    "inn": "7707619574",
+    "maxApartmentCostM2": "88.2",
+    "maxCostMillion": "37.0",
+    "name": "ООО СЗ Импульс",
+    "ogrn": "1077746722437",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-impuls-25373244001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "29657",
+    "filteredApartmentsCount": 149,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "26321506001",
+    "inn": "7716945454",
+    "maxApartmentCostM2": "93.4",
+    "maxCostMillion": "37.6",
+    "name": "ООО СЗ К11",
+    "ogrn": "1207700077386",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-k11-26321506001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "47643",
+    "capital": "100000",
+    "filteredApartmentsCount": 156,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2023",
+    "gkCountSales": 1,
+    "id": "27359277001",
+    "inn": "7720914875",
+    "maxApartmentCostM2": "104.4",
+    "maxCostMillion": "51.1",
+    "name": "ООО Специализированный застройщик Грани",
+    "ogrn": "1237700851640",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-grani-27359277001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "43539",
+    "capital": "10000",
+    "filteredApartmentsCount": 167,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2020",
+    "gkCountSales": 1,
+    "id": "27759873001",
+    "inn": "7743341691",
+    "maxApartmentCostM2": "88.1",
+    "maxCostMillion": "34.2",
+    "name": "ООО СЗ Стройком",
+    "ogrn": "1207700209782",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-strojkom-27759873001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "83543",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 2,
+    "filteredGkCount": 2,
+    "filteredPtCount": 0,
+    "foundationYear": "2023",
+    "gkCountSales": 2,
+    "id": "27990749001",
+    "inn": "9703158414",
+    "name": "ООО Специализированный застройщик Улица Одесская",
+    "ogrn": "1237700702690",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ulica-odesskaja-27990749001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "29181",
+    "filteredApartmentsCount": 254,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2006",
+    "gkCountSales": 1,
+    "id": "28641298001",
+    "inn": "7733567146",
+    "maxApartmentCostM2": "97.6",
+    "maxCostMillion": "44.3",
+    "name": "ООО СЗ Луч",
+    "ogrn": "1067746533117",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-luch-28641298001"
+}, {
+    "address": "г.Москва, город Москва",
+    "apartmentsCountAll": 0,
+    "apartmentsCountSales": 0,
+    "brandId": "429726001",
+    "brandName": "ПИК",
+    "brandShortName": "ПИК",
+    "buildingVolume": "74338",
+    "capital": "1000000",
+    "filteredApartmentsCount": 0,
+    "filteredComplexCount": 1,
+    "filteredGkCount": 1,
+    "filteredPtCount": 0,
+    "foundationYear": "2023",
+    "gkCountSales": 1,
+    "id": "28774535001",
+    "inn": "7720916713",
+    "name": "ООО СЗ Гольяново",
+    "ogrn": "1237700875026",
+    "ptCountSales": 0,
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-goljanovo-28774535001"
+}]
+
+
+отсюда надо для каждого застройщика сохранить следующие поля
+"address": "г.Москва, город Москва",
+    "id": "28774535001",
+    "inn": "7720916713",
+    "name": "ООО СЗ Гольяново",
+    "ogrn": "1237700875026",
+    "regionKey": "143443001",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-goljanovo-28774535001"
+
+при этом внутри одного застройщика данные надо дедублицировать по всем регионам по полям
+
+"id": "28774535001",
+    "inn": "7720916713",
+    "name": "ООО СЗ Гольяново",
+    "ogrn": "1237700875026",
+
+а возможные повторения по полям "address": "г.Москва, город Москва",  "regionKey": "143443001" надо также записать в виде вложенной структуры с массивом значений
+
+Те получаем структуру в виде застройщика и его даныные с вложенным массивом регионов
+в нем же (но не внутри региона а внутри застройщика) вложенная структура со списком компаний группы с их данными и внутри компаний группы уже свой массив их регионов
+
+далее делается следующий запрос также для каждой группы застройщиков (группы из JOIN)
+
+
+:method: GET
+:scheme: https
+:authority: erzrf.ru
+:path: /erz-rest/api/v1/developer/names?region=moskva&regionKey=143443001&costType=1&organizationId=429726001
+Accept: application/json, text/plain, */*
+Sec-Fetch-Site: same-origin
+Cookie: _ym_visorc=b; ufCookies=860bdab0-8aba-11f1-afc7-5116b74fb462; _ym_fa=11106.DiQcnNJhHUUQNKVae0zG2O6GPVlFzdaFJitL2Khp5wDdaO50N4f0zwtMjLmt3X0R.FpVdLQtUPiV-jywaGg0DEPcbZu4%2C; _ym_d=1785265812; _ym_isad=2; _ym_uid=1785265812363746836
+Sec-Fetch-Dest: empty
+Accept-Language: ru
+Sec-Fetch-Mode: cors
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15
+Accept-Encoding: gzip, deflate, br, zstd
+Referer: https://erzrf.ru/zastroyschiki/brand/pik-429726001?region=moskva&regionKey=143443001&costType=1&organizationId=429726001
+Priority: u=3, i
+
+ответ
+:status: 200
+Content-Type: application/json
+Pragma: no-cache
+X-XSS-Protection: 0
+Content-Encoding: gzip
+Expires: 0
+Referrer-Policy: origin-when-cross-origin
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Date: Tue, 28 Jul 2026 19:51:13 GMT
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Vary: Accept-Encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+x-cache-status: HIT
+Server: nginx
+
+Параметры строки запроса
+region: moskva
+regionKey: 143443001
+costType: 1
+organizationId: 429726001
+
+делается для каждогй группы застройщиков и каждого региона внутри него
+organizationId = id из запроса JOIn 
+
+path: /erz-rest/api/v1/developer/names?region=moskva&regionKey=143443001&costType=1&organizationId=429726001
+формируется для каждого региона и группы свой получается 
+
+
+ответ будет список содержащий клиентов которые Используют бренд Группы застройщиков
+
+[{
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "3851258001",
+    "inn": "7725038614",
+    "name": "АО 3-Й ТАКСОМОТОРНЫЙ ПАРК",
+    "ogrn": "1027739148304",
+    "urlId": "ao-3-j-taksomotornyj-park-3851258001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "5901761001",
+    "inn": "7714008255",
+    "name": "АО ЖБИ-23",
+    "ogrn": "1027700207391",
+    "urlId": "ao-zavod-zhelezobetonnykh-izdelij-№23-5901761001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "4291272001",
+    "inn": "7723025105",
+    "name": "АО Межрегионоптторг",
+    "ogrn": "1027739317836",
+    "urlId": "ao-mezhregionopttorg-4291272001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "3851500001",
+    "inn": "7729755852",
+    "name": "АО ПИК-ИНДУСТРИЯ",
+    "ogrn": "5137746021012",
+    "urlId": "ao-pik-industrija-3851500001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "6290288001",
+    "inn": "7730626844",
+    "name": "АО Порт-Сити",
+    "ogrn": "1107746444189",
+    "urlId": "ao-port-siti-6290288001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "15795347001",
+    "inn": "7724068253",
+    "name": "АО СЗ АК16",
+    "ogrn": "1027700394633",
+    "urlId": "ao-specializirovannyj-zastrojshhik-ak16-15795347001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "15097338001",
+    "inn": "7718083824",
+    "name": "АО СЗ ГЛОРИ",
+    "ogrn": "1027739733328",
+    "urlId": "ao-specializirovannyj-zastrojshhik-glori-15097338001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "15869890001",
+    "inn": "7712023890",
+    "name": "АО СЗ МАК8",
+    "ogrn": "1037739342486",
+    "urlId": "ao-specializirovannyj-zastrojshhik-mak8-15869890001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "21375785001",
+    "inn": "7724024312",
+    "name": "АО СЗ ПЛАСТПОЛИТЕН",
+    "ogrn": "1027700008742",
+    "urlId": "ao-specializirovannyj-zastrojshhik-plastpoliten-21375785001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "5494384001",
+    "inn": "7702815127",
+    "name": "АО СЗ ПФК",
+    "ogrn": "1137746417830",
+    "urlId": "zao-pticefabrika-krasnogorskaja-5494384001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "15114476001",
+    "inn": "7715168050",
+    "name": "АО СЗ Радуга",
+    "ogrn": "1027700092078",
+    "urlId": "ao-specializirovannyj-zastrojshhik-raduga-15114476001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "17727697001",
+    "inn": "7716079163",
+    "name": "АО СЗ Стройдеталь",
+    "ogrn": "1027739132662",
+    "urlId": "ao-specializirovannyj-zastrojshhik-strojdetal-17727697001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "21747003001",
+    "inn": "7715030599",
+    "name": "АО СЗ ТМП №20",
+    "ogrn": "1027739037457",
+    "urlId": "ao-specializirovannyj-zastrojshhik-tmp-№20-21747003001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "18010444001",
+    "inn": "7730014256",
+    "name": "АО СЗ ФИЛИТ",
+    "ogrn": "1027700216609",
+    "urlId": "ao-specializirovannyj-zastrojshhik-filit-18010444001"
+}, {
+    "address": "Московская область, пос. Беляная Гора (в составе г. о. Руза)",
+    "filtered": true,
+    "id": "18502038001",
+    "inn": "7718014387",
+    "name": "АО СПЕЦИАЛИЗИРОВАННЫЙ ЗАСТРОЙЩИК СОКОЛЬНИЧЕСКИЙ ВА",
+    "ogrn": "1027700100537",
+    "urlId": "ao-specializirovannyj-zastrojshhik-sokolnicheskij-val-18502038001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "14415501001",
+    "inn": "7722311022",
+    "name": "АО Специализированный застройщик Волжский Парк",
+    "ogrn": "1106453003227",
+    "urlId": "ao-specializirovannyj-zastrojshhik-volzhskij-park-14415501001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "20848937001",
+    "inn": "7735092843",
+    "name": "АО Специализированный застройщик Зеленоградский",
+    "ogrn": "1027739388511",
+    "urlId": "ao-specializirovannyj-zastrojshhik-zelenogradskij-20848937001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "15826066001",
+    "inn": "7743555005",
+    "name": "АО Специализированный застройщик Ижорская",
+    "ogrn": "1057746552115",
+    "urlId": "ao-specializirovannyj-zastrojshhik-izhorskaja-15826066001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "15287738001",
+    "inn": "7722002722",
+    "name": "АО Специализированный застройщик Красноказарменная",
+    "ogrn": "1037739259623",
+    "urlId": "ao-khlebozavod-№-12-15287738001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "4497019001",
+    "inn": "7731138751",
+    "name": "АО Специализированный застройщик Кунцево-Инвест",
+    "ogrn": "1027739026204",
+    "urlId": "zao-kuncevo-invest-4497019001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "6926849001",
+    "inn": "7715842640",
+    "name": "АО Специализированный застройщик ЛЗСМИК",
+    "ogrn": "5107746016021",
+    "urlId": "ao-losinoostrovskij-zavod-stroitelnykh-materialov-i-konstrukcij-6926849001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "3851457001",
+    "inn": "7718122544",
+    "name": "АО Специализированный застройщик МОНЕТЧИК",
+    "ogrn": "1027739584400",
+    "urlId": "zao-monetchik-3851457001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "15795413001",
+    "inn": "7722729405",
+    "name": "АО Специализированный застройщик Новохохловская 15",
+    "ogrn": "1107746827187",
+    "urlId": "ao-specializirovannyj-zastrojshhik-novokhokhlovskaja-15-15795413001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "17012880001",
+    "inn": "7709868551",
+    "name": "АО Специализированный застройщик Перовское",
+    "ogrn": "5107746062232",
+    "urlId": "ao-specializirovannyj-zastrojshhik-perovskoe-17012880001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "10012747001",
+    "inn": "7722458402",
+    "name": "АО Специализированный застройщик Столичный комплек",
+    "ogrn": "1187746458998",
+    "urlId": "ao-specializirovannyj-zastrojshhik-stolichnyj-kompleks-10012747001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "20886510001",
+    "inn": "7743272279",
+    "name": "АО Специализированный застройщик Торговый дом Спут",
+    "ogrn": "1187746788833",
+    "urlId": "ao-specializirovannyj-zastrojshhik-torgovyj-dom-sputnik-20886510001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "21204794001",
+    "inn": "7722477370",
+    "name": "АО Специализированный застройщик Триал Сервис",
+    "ogrn": "1197746457556",
+    "urlId": "ao-specializirovannyj-zastrojshhik-trial-servis-21204794001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "5901269001",
+    "inn": "7703386671",
+    "name": "АО Стройпроект",
+    "ogrn": "1057706087042",
+    "urlId": "zao-strojproekt-5901269001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "6925847001",
+    "inn": "7715152910",
+    "name": "АО ХК Суихолдинг",
+    "ogrn": "1027700104410",
+    "urlId": "ao-kholdingovaja-kompanija-suikholding-6925847001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "2746040001",
+    "inn": "7704114504",
+    "name": "НО НИПП Ассоциация Народное домостроение",
+    "ogrn": "1027700236937",
+    "urlId": "no-nauchno-issledovatelskaja-proektno-proizvodstvennaja-associacija-narodnoe-domostroenie-2746040001"
+}, {
+    "address": "г.Москва, дер. Марьино",
+    "filtered": true,
+    "id": "9171262001",
+    "inn": "7715343785",
+    "name": "ООО Борец",
+    "ogrn": "1027739050239",
+    "urlId": "ooo-borec-9171262001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "3050529001",
+    "inn": "7705337630",
+    "name": "ООО Вейстоун",
+    "ogrn": "1027739235556",
+    "urlId": "ooo-vejstoun-3050529001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "8886652001",
+    "inn": "7703637519",
+    "name": "ООО ГП-Реновация",
+    "ogrn": "5077746981076",
+    "urlId": "ooo-park-presnja-8886652001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "346174001",
+    "inn": "7714192290",
+    "name": "ООО Мортон-РСО",
+    "ogrn": "1037739781200",
+    "urlId": "ooo-morton-rso-346174001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "893920001",
+    "inn": "5003070083",
+    "name": "ООО Мортон-Юг",
+    "ogrn": "1075003008464",
+    "urlId": "ooo-morton-jug-893920001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "21090953001",
+    "inn": "7716950920",
+    "name": "ООО СЗ Авангард",
+    "ogrn": "1207700418640",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-avangard-21090953001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "28774535001",
+    "inn": "7720916713",
+    "name": "ООО СЗ Гольяново",
+    "ogrn": "1237700875026",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-goljanovo-28774535001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "17008430001",
+    "inn": "7722291048",
+    "name": "ООО СЗ Горизонт",
+    "ogrn": "1037722022843",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-gorizont-17008430001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "21863696001",
+    "inn": "7722367378",
+    "name": "ООО СЗ ДРСУ-34",
+    "ogrn": "1167746577481",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-drsu-34-21863696001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "21375578001",
+    "inn": "7723456045",
+    "name": "ООО СЗ ИТЭ",
+    "ogrn": "1167746610646",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ite-21375578001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "25373244001",
+    "inn": "7707619574",
+    "name": "ООО СЗ Импульс",
+    "ogrn": "1077746722437",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-impuls-25373244001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "26321506001",
+    "inn": "7716945454",
+    "name": "ООО СЗ К11",
+    "ogrn": "1207700077386",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-k11-26321506001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "25020200001",
+    "inn": "9715391937",
+    "name": "ООО СЗ Л-Девелопмент",
+    "ogrn": "1207700405021",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-l-development-25020200001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "28641298001",
+    "inn": "7733567146",
+    "name": "ООО СЗ Луч",
+    "ogrn": "1067746533117",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-luch-28641298001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "9154202001",
+    "inn": "7703433829",
+    "name": "ООО СЗ Люблино Девелопмент",
+    "ogrn": "1177746995183",
+    "urlId": "ooo-ljublino-development-9154202001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "21334729001",
+    "inn": "9718130027",
+    "name": "ООО СЗ МПЖБ-18",
+    "ogrn": "1197746131076",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-mpzhb-18-21334729001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "15772549001",
+    "inn": "9718128966",
+    "name": "ООО СЗ ПЛАМ",
+    "ogrn": "1197746104082",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-plam-15772549001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "18940617001",
+    "inn": "7707829194",
+    "name": "ООО СЗ Перспективные Инвестиции",
+    "ogrn": "1147746300591",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-perspektivnye-investicii-18940617001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "22256499001",
+    "inn": "7715988656",
+    "name": "ООО СЗ Перспективные решения",
+    "ogrn": "1147746026801",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-perspektivnye-reshenija-22256499001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "22690002001",
+    "inn": "7729326349",
+    "name": "ООО СЗ Риверсайд",
+    "ogrn": "1027700206159",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-riversajd-22690002001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "14959090001",
+    "inn": "7714911058",
+    "name": "ООО СЗ Середнево",
+    "ogrn": "1137746624828",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-serednevo-14959090001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "15487683001",
+    "inn": "7813410486",
+    "name": "ООО СЗ Симоновская Набережная",
+    "ogrn": "1089847137049",
+    "urlId": "ooo-neva-inform-15487683001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "23176062001",
+    "inn": "7716948832",
+    "name": "ООО СЗ Созвездие",
+    "ogrn": "1207700287398",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-sozvezdie-23176062001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "27759873001",
+    "inn": "7743341691",
+    "name": "ООО СЗ Стройком",
+    "ogrn": "1207700209782",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-strojkom-27759873001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "20363975001",
+    "inn": "7743039385",
+    "name": "ООО СЗ Тратта-Центр",
+    "ogrn": "1157746021730",
+    "urlId": "ooo-tratta-centr-20363975001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "18562550001",
+    "inn": "7743345103",
+    "name": "ООО СЗ Центрполис",
+    "ogrn": "1207700284296",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-centrpolis-18562550001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "22807398001",
+    "inn": "9709044935",
+    "name": "ООО СЗ Часовая",
+    "ogrn": "1197746127215",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-chasovaja-22807398001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "24531511001",
+    "inn": "7720799799",
+    "name": "ООО СЗ Ясеневый парк",
+    "ogrn": "5137746208694",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-jasenevyj-park-24531511001"
+}, {
+    "address": "Московская область, г. Красногорск",
+    "filtered": true,
+    "id": "9075171001",
+    "inn": "5024139770",
+    "name": "ООО СК Жилиндустрия",
+    "ogrn": "1135024006864",
+    "urlId": "ooo-sk-zhilindustrija-9075171001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "13067741001",
+    "inn": "5406589379",
+    "name": "ООО Специализированный Застройщик Легро",
+    "ogrn": "1155476082475",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-legro-13067741001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "21843712001",
+    "inn": "9709067315",
+    "name": "ООО Специализированный Застройщик Фарамант",
+    "ogrn": "1207700449186",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-faramant-21843712001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "15250064001",
+    "inn": "9729037439",
+    "name": "ООО Специализированный застройщик Большая Очаковск",
+    "ogrn": "5167746309231",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-bolshaja-ochakovskaja-15250064001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "14651498001",
+    "inn": "7707303732",
+    "name": "ООО Специализированный застройщик Волоколамское шо",
+    "ogrn": "1027739108022",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-agramant-14651498001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "27359277001",
+    "inn": "7720914875",
+    "name": "ООО Специализированный застройщик Грани",
+    "ogrn": "1237700851640",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-grani-27359277001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "15287539001",
+    "inn": "7713565239",
+    "name": "ООО Специализированный застройщик Лихоборы",
+    "ogrn": "1057748248480",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-likhobory-15287539001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "11959465001",
+    "inn": "7728900666",
+    "name": "ООО Специализированный застройщик М.Строй",
+    "ogrn": "1147748028218",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-mstroj-11959465001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "15801201001",
+    "inn": "9729298039",
+    "name": "ООО Специализированный застройщик Озёрная 44",
+    "ogrn": "1207700249965",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ozyornaja-44-15801201001"
+}, {
+    "address": "г.Москва, город Зеленоград",
+    "filtered": true,
+    "id": "3295470001",
+    "inn": "5024147530",
+    "name": "ООО Специализированный застройщик ПрометейСити",
+    "ogrn": "1145024006490",
+    "urlId": "ooo-prometejsiti-3295470001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "13434019001",
+    "inn": "7727543940",
+    "name": "ООО Специализированный застройщик Солнцево парк",
+    "ogrn": "1057747133080",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-solncevo-park-13434019001"
+}, {
+    "address": "Московская область, г. Наро-Фоминск",
+    "filtered": true,
+    "id": "20958082001",
+    "inn": "5030084705",
+    "name": "ООО Специализированный застройщик Сфера",
+    "ogrn": "1155030000311",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-sfera-20958082001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "150557001",
+    "inn": "7701511447",
+    "name": "ООО Специализированный застройщик Териберский Бере",
+    "ogrn": "1037739970773",
+    "urlId": "ooo-teriberskij-bereg-150557001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "5666484001",
+    "inn": "7709490911",
+    "name": "ООО Специализированный застройщик Тирон",
+    "ogrn": "1167746411799",
+    "urlId": "ooo-tiron-5666484001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "27990749001",
+    "inn": "9703158414",
+    "name": "ООО Специализированный застройщик Улица Одесская",
+    "ogrn": "1237700702690",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ulica-odesskaja-27990749001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "3794730001",
+    "inn": "7722621810",
+    "name": "ООО ТехноСтрой",
+    "ogrn": "1077759474704",
+    "urlId": "ooo-tekhnostroj-3794730001"
+}, {
+    "address": "г.Москва",
+    "filtered": true,
+    "id": "3071824001",
+    "inn": "7704271480",
+    "name": "Общественное объединение МКПП (Р)",
+    "ogrn": "1057700019475",
+    "urlId": "obshhestvennoe-obedinenie-regionalnoe-obedinenie-rabotodatelej-goroda-federalnogo-znachenija-moskvy-"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": true,
+    "id": "490190001",
+    "inn": "7713011336",
+    "name": "ПАО ПИК СЗ",
+    "ogrn": "1027739137084",
+    "urlId": "pao-gruppa-kompanij-pik-490190001"
+}, {
+    "address": "Московская область, г. Красногорск",
+    "filtered": false,
+    "id": "886816001",
+    "inn": "7722639085",
+    "name": "АО ЗемПроектСтрой",
+    "ogrn": "1087746209770",
+    "urlId": "ao-zemproektstroj-886816001"
+}, {
+    "address": "Московская область, город Мытищи",
+    "filtered": false,
+    "id": "9180572001",
+    "inn": "7743198280",
+    "name": "АО Компания Атол",
+    "ogrn": "1177746243465",
+    "urlId": "ao-kompanija-atol-9180572001"
+}, {
+    "address": "Краснодарский край, г. Новороссийск",
+    "filtered": false,
+    "id": "179451001",
+    "inn": "2315095680",
+    "name": "АО ПИК-Кубань",
+    "ogrn": "1022302384785",
+    "urlId": "ao-pik-kuban-179451001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "6363493001",
+    "inn": "7715390538",
+    "name": "АО Профсервис",
+    "ogrn": "1037715068577",
+    "urlId": "zao-profservis-6363493001"
+}, {
+    "address": "Калужская область, г. Обнинск",
+    "filtered": false,
+    "id": "7402477001",
+    "inn": "3906100850",
+    "name": "АО СЗ Балтийская Финансово-строительная Компания",
+    "ogrn": "1023900986340",
+    "urlId": "ao-baltijskaja-finansovo-stroitelnaja-kompanija-7402477001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "23581213001",
+    "inn": "7727410450",
+    "name": "АО СЗ Ладожский",
+    "ogrn": "1197746126104",
+    "urlId": "ao-specializirovannyj-zastrojshhik-ladozhskij-23581213001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "9013297001",
+    "inn": "7722442850",
+    "name": "АО СЗ Новый Горизонт",
+    "ogrn": "1187746256390",
+    "urlId": "ao-novyj-gorizont-9013297001"
+}, {
+    "address": "Республика Татарстан (Татарстан), город Казань",
+    "filtered": false,
+    "id": "21844742001",
+    "inn": "1655079910",
+    "name": "АО Специализированный застройщик Алтын",
+    "ogrn": "1041621007691",
+    "urlId": "ao-specializirovannyj-zastrojshhik-altyn-21844742001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "22591205001",
+    "inn": "7743276530",
+    "name": "АО Специализированный застройщик Галактион",
+    "ogrn": "1187746846550",
+    "urlId": "ao-specializirovannyj-zastrojshhik-galaktion-22591205001"
+}, {
+    "address": "Московская область, город Дмитров",
+    "filtered": false,
+    "id": "722739001",
+    "inn": "7729118074",
+    "name": "АО Специализированный застройщик ПИК-Регион",
+    "ogrn": "1027700214189",
+    "urlId": "ao-pervaja-ipotechnaja-kompanija-region-722739001"
+}, {
+    "address": "Московская область, город Мытищи",
+    "filtered": false,
+    "id": "10835315001",
+    "inn": "7722442868",
+    "name": "АО Яркий мир",
+    "ogrn": "1187746257038",
+    "urlId": "ao-jarkij-mir-10835315001"
+}, {
+    "address": "Ярославская область, г. Ярославль",
+    "filtered": false,
+    "id": "146621001",
+    "inn": "7602036600",
+    "name": "ЗАО ПИК-Верхняя Волга",
+    "ogrn": "1037600002945",
+    "urlId": "zao-pik-verkhnjaja-volga-146621001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "884494001",
+    "inn": "7723524584",
+    "name": "ЗАО СТ-ИНЖИНИРИНГ",
+    "ogrn": "1047796837000",
+    "urlId": "zao-st-inzhiniring-884494001"
+}, {
+    "address": "Московская область, г. Балашиха",
+    "filtered": false,
+    "id": "875314001",
+    "inn": "5001035453",
+    "name": "ООО Агентство недвижимости КЛЮЧ",
+    "ogrn": "1025000515242",
+    "urlId": "ooo-agentstvo-nedvizhimosti-kljuch-875314001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "9192421001",
+    "inn": "7728819253",
+    "name": "ООО Восточный",
+    "ogrn": "1127746751956",
+    "urlId": "ooo-vostochnyj-9192421001"
+}, {
+    "address": "Московская область, г. Мытищи",
+    "filtered": false,
+    "id": "362538001",
+    "inn": "7723189270",
+    "name": "ООО Загородная усадьба",
+    "ogrn": "1027700011393",
+    "urlId": "ooo-zagorodnaja-usadba-362538001"
+}, {
+    "address": "Московская область, г. Железнодорожный (в составе г.о. Балашиха)",
+    "filtered": false,
+    "id": "351175001",
+    "inn": "7722730908",
+    "name": "ООО ЗемСтройАльянс",
+    "ogrn": "1107746881307",
+    "urlId": "ooo-zemstrojaljans-351175001"
+}, {
+    "address": "Московская область, г. Мытищи",
+    "filtered": false,
+    "id": "362613001",
+    "inn": "7713540210",
+    "name": "ООО КОВЧЕГ",
+    "ogrn": "1047796848582",
+    "urlId": "ooo-kovcheg-362613001"
+}, {
+    "address": "Московская область, г. Котельники",
+    "filtered": false,
+    "id": "8871911001",
+    "inn": "9721014302",
+    "name": "ООО Мегаполис",
+    "ogrn": "1167746857068",
+    "urlId": "ooo-megapolis-8871911001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "874287001",
+    "inn": "5050049723",
+    "name": "ООО Мистерия+",
+    "ogrn": "1045010213434",
+    "urlId": "ooo-misterija+-874287001"
+}, {
+    "address": "Московская область, г. Лобня",
+    "filtered": false,
+    "id": "878608001",
+    "inn": "5032192199",
+    "name": "ООО НИКП",
+    "ogrn": "1085032007543",
+    "urlId": "ooo-nikp-878608001"
+}, {
+    "address": "Пермский край, г. Пермь",
+    "filtered": false,
+    "id": "2576926001",
+    "inn": "5904125919",
+    "name": "ООО Проект 2",
+    "ogrn": "1055901651904",
+    "urlId": "ooo-proekt-2-2576926001"
+}, {
+    "address": "Московская область, г. Красногорск",
+    "filtered": false,
+    "id": "150548001",
+    "inn": "5024058111",
+    "name": "ООО РИВАС МО",
+    "ogrn": "1035004461953",
+    "urlId": "ooo-rivas-mo-150548001"
+}, {
+    "address": "Московская область, г. Котельники",
+    "filtered": false,
+    "id": "3719110001",
+    "inn": "5027196840",
+    "name": "ООО РегионИнвест",
+    "ogrn": "1135027001284",
+    "urlId": "ooo-regioninvest-3719110001"
+}, {
+    "address": "Московская область, г. Химки",
+    "filtered": false,
+    "id": "7112675001",
+    "inn": "5008035413",
+    "name": "ООО Регионстройкомплекс-XXI век",
+    "ogrn": "1035001857670",
+    "urlId": "ooo-regionstrojkompleks-xxi-vek-7112675001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "740535001",
+    "inn": "7722813791",
+    "name": "ООО РусСтройГарант",
+    "ogrn": "1137746597009",
+    "urlId": "ooo-russtrojgarant-740535001"
+}, {
+    "address": "Ярославская область, город Ярославль",
+    "filtered": false,
+    "id": "4116361001",
+    "inn": "7743563493",
+    "name": "ООО Русбизнесинвест",
+    "ogrn": "1057747410621",
+    "urlId": "ooo-rusbiznesinvest-4116361001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "21373874001",
+    "inn": "7726471370",
+    "name": "ООО СЗ Альмандин",
+    "ogrn": "1207700464751",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-almandin-21373874001"
+}, {
+    "address": "Московская область, город Котельники",
+    "filtered": false,
+    "id": "23581488001",
+    "inn": "7718853752",
+    "name": "ООО СЗ Геопарк",
+    "ogrn": "1117746560799",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-geopark-23581488001"
+}, {
+    "address": "Московская область, город Мытищи",
+    "filtered": false,
+    "id": "4198262001",
+    "inn": "7703788074",
+    "name": "ООО СЗ ГрадОлимп",
+    "ogrn": "1137746339720",
+    "urlId": "ooo-gradolimp-4198262001"
+}, {
+    "address": "Ленинградская область, город Всеволожск",
+    "filtered": false,
+    "id": "16854005001",
+    "inn": "7722856273",
+    "name": "ООО СЗ ИнвестАльянс",
+    "ogrn": "5147746144387",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-investaljans-16854005001"
+}, {
+    "address": "Московская область, город Королев",
+    "filtered": false,
+    "id": "15835875001",
+    "inn": "5018180402",
+    "name": "ООО СЗ Кантемировская",
+    "ogrn": "1155018003535",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-kantemirovskaja-15835875001"
+}, {
+    "address": "г.Санкт-Петербург, город Санкт-Петербург",
+    "filtered": false,
+    "id": "21455435001",
+    "inn": "7806543527",
+    "name": "ООО СЗ Лиговский Сити",
+    "ogrn": "1187847148785",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ligovskij-siti-21455435001"
+}, {
+    "address": "Московская область, город Мытищи",
+    "filtered": false,
+    "id": "869753001",
+    "inn": "7729605705",
+    "name": "ООО СЗ Лотан",
+    "ogrn": "1087746833316",
+    "urlId": "ooo-lotan-869753001"
+}, {
+    "address": "Республика Татарстан (Татарстан), город Казань",
+    "filtered": false,
+    "id": "22143222001",
+    "inn": "1660363355",
+    "name": "ООО СЗ МТ-Девелопмент",
+    "ogrn": "1211600036361",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-mt-development-22143222001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "22095818001",
+    "inn": "7716951338",
+    "name": "ООО СЗ Москворецкий Дом",
+    "ogrn": "1207700441420",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-moskvoreckij-dom-22095818001"
+}, {
+    "address": "Московская область, город Котельники",
+    "filtered": false,
+    "id": "23519432001",
+    "inn": "9721090818",
+    "name": "ООО СЗ НМ-Консалт",
+    "ogrn": "1197746701877",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-nm-konsalt-23519432001"
+}, {
+    "address": "Республика Бурятия, город Улан-Удэ",
+    "filtered": false,
+    "id": "27076689001",
+    "inn": "0300018055",
+    "name": "ООО СЗ ПИК Байкала",
+    "ogrn": "1230300007607",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-pik-bajkala-27076689001"
+}, {
+    "address": "Калужская область, г. Обнинск",
+    "filtered": false,
+    "id": "176635001",
+    "inn": "4025437093",
+    "name": "ООО СЗ ПИК-Запад",
+    "ogrn": "1134025004816",
+    "urlId": "ooo-pik-zapad-176635001"
+}, {
+    "address": "Сахалинская область, город Южно-Сахалинск",
+    "filtered": false,
+    "id": "18638382001",
+    "inn": "6501306985",
+    "name": "ООО СЗ ПИК-Сахалин",
+    "ogrn": "1196501007218",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-pik-sakhalin-18638382001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "23105287001",
+    "inn": "9723108147",
+    "name": "ООО СЗ Пегас",
+    "ogrn": "1207700462474",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-pegas-23105287001"
+}, {
+    "address": "Приморский край, город Владивосток",
+    "filtered": false,
+    "id": "18638066001",
+    "inn": "2540257614",
+    "name": "ООО СЗ Пик-Приморье",
+    "ogrn": "1202500022152",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-pik-primore-18638066001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "23391439001",
+    "inn": "9724115958",
+    "name": "ООО СЗ Проект Строй",
+    "ogrn": "1227700918565",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-proekt-stroj-23391439001"
+}, {
+    "address": "Республика Татарстан (Татарстан), город Казань",
+    "filtered": false,
+    "id": "26728281001",
+    "inn": "1686029098",
+    "name": "ООО СЗ Радиус",
+    "ogrn": "1231600033730",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-radius-26728281001"
+}, {
+    "address": "Республика Татарстан (Татарстан), город Казань",
+    "filtered": false,
+    "id": "27593288001",
+    "inn": "1686029299",
+    "name": "ООО СЗ Улица Ботаническая",
+    "ogrn": "1231600034819",
+    "urlId": "koo-specializirovannyj-zastrojshhik-ulica-botanicheskaja-27593288001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "27857414001",
+    "inn": "7703469230",
+    "name": "ООО СЗ Улица Хади Такташа",
+    "ogrn": "1197746011253",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ulica-khadi-taktasha-27857414001"
+}, {
+    "address": "Приморский край, город Владивосток",
+    "filtered": false,
+    "id": "23513915001",
+    "inn": "2540257879",
+    "name": "ООО СЗ Формула-ДВ",
+    "ogrn": "1202500023802",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-formula-dv-23513915001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "21091587001",
+    "inn": "9709068598",
+    "name": "ООО СЗ ЭКОСТРОЙ",
+    "ogrn": "1217700009482",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ekostroj-21091587001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "24232706001",
+    "inn": "7707696593",
+    "name": "ООО СЗ Юстина",
+    "ogrn": "1097746046661",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-justina-24232706001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "21405815001",
+    "inn": "9709068340",
+    "name": "ООО Специализированный застройщик АРТСТРОЙ",
+    "ogrn": "1207700502602",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-artstroj-21405815001"
+}, {
+    "address": "Московская область, г. Балашиха",
+    "filtered": false,
+    "id": "22026256001",
+    "inn": "5001139332",
+    "name": "ООО Специализированный застройщик ГрандТим",
+    "ogrn": "1215000048548",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-grandtim-22026256001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "23656797001",
+    "inn": "7716945447",
+    "name": "ООО Специализированный застройщик Лужнецкий кварта",
+    "ogrn": "1207700077375",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-luzhneckij-kvartal-23656797001"
+}, {
+    "address": "Амурская область, город Благовещенск",
+    "filtered": false,
+    "id": "22571645001",
+    "inn": "2801265933",
+    "name": "ООО Специализированный застройщик ПИК Благовещенск",
+    "ogrn": "1212800006583",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-pik-blagoveshhensk-22571645001"
+}, {
+    "address": "г.Москва",
+    "filtered": false,
+    "id": "7859240001",
+    "inn": "7610105896",
+    "name": "ООО Специализированный застройщик ПИК-Урал",
+    "ogrn": "1147610003661",
+    "urlId": "ooo-pik-ural-7859240001"
+}, {
+    "address": "Тюменская область, город Тюмень",
+    "filtered": false,
+    "id": "9743673001",
+    "inn": "7203441557",
+    "name": "ООО Специализированный застройщик Пик-Тура",
+    "ogrn": "1187232002737",
+    "urlId": "ooo-pik-tura-9743673001"
+}, {
+    "address": "Московская область, г. Котельники",
+    "filtered": false,
+    "id": "5967833001",
+    "inn": "5027222000",
+    "name": "ООО Специализированный застройщик Ривьера Парк",
+    "ogrn": "1145027020357",
+    "urlId": "ooo-rivera-park-5967833001"
+}, {
+    "address": "г.Москва, город Москва",
+    "filtered": false,
+    "id": "17043879001",
+    "inn": "7725445592",
+    "name": "ООО Специализированный застройщик Столица",
+    "ogrn": "1187746233707",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-stolica-17043879001"
+}, {
+    "address": "Ленинградская область, поселок Новоселье",
+    "filtered": false,
+    "id": "18301133001",
+    "inn": "7743345110",
+    "name": "ООО Специализированный застройщик Строй-Эксперт",
+    "ogrn": "1207700284307",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-stroj-ekspert-18301133001"
+}, {
+    "address": "Ленинградская область, город Всеволожск",
+    "filtered": false,
+    "id": "18276047001",
+    "inn": "7743345216",
+    "name": "ООО Специализированный застройщик Экстраград",
+    "ogrn": "1207700288510",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ekstragrad-18276047001"
+}]
+
+из этого списка надо сохранять поля
+"address": "Ленинградская область, город Всеволожск",
+    "id": "18276047001",
+    "inn": "7743345216",
+    "name": "ООО Специализированный застройщик Экстраград",
+    "ogrn": "1207700288510",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ekstragrad-18276047001"
+
+    также дедублицируем по полям
+
+    "id": "18276047001",
+    "inn": "7743345216",
+    "name": "ООО Специализированный застройщик Экстраград",
+    "ogrn": "1207700288510",
+    "urlId": "ooo-specializirovannyj-zastrojshhik-ekstragrad-18276047001"
+
+    и внутри делаем вложенный массив если несколько раз встретится значения поля "address": "Ленинградская область, город Всеволожск",
+
+
+    и этот список добавляем в итоговый список в виде доп вложенной структуры к Группе застройщика 
+
+
+    этот полученый список надо сохранить в виде JSON файла итогового
+    имя задать ERZ_Full + таймштамп . json
+
+    надо это оформить при запуске в виде красивой и удобной модалки
+    в которой надо сделать выбора какие запросы делаем поэтапно с выводом информации какой запрос делается как он исполняется сколько чего найдено 
+    количестов регионов количествоол групп сколько компаний внури групп и сколько компаний используют бренд
+
+    например делается кнопкой запрос регионов и предоставлется спиок их с возможностью выбрать либо отдельные либо все разом 
+    далее делается кнопка с запросом join после чего появляется уже список групп в которых также можно выбрать какие из них надо запросить или все
+
+    далее уже делаются запросы компаний группы и компаний испоользующих бренд
+    каждый этап ответы (кроме финального) надор предусмотреть возможность сохранерия в файлы эти ответы JSON 
+    некий крыжик делаем сохранять промежуточные ответы (именуем по ID + )urlId + таймштамп) или нет 
+
+    итоговый финальный сохраняем всегда
+
+    реализуй JS файл 
+
+    можешь для эффективности и оптимицации сам продумать последовательность запросов
+    для предотвращения блокировки от сайта лучше запросы делать с некторой паузой которую задаем в интерфейсе модалки
+
+    составь подробный роудмап и план работ детальный
+    если есть вопросы задай их мне в виде диалога после ответов доделай роудмап и начни реализацию
