@@ -99,5 +99,45 @@
         }
       }
     }
+  },
+  "base_kg_inn_extract": {
+    "input_xlsx": "input/base_kg_sample.xlsx",
+    "output_xlsx": "output/base_kg_inn.xlsx",
+    "output_add_timestamp": true,
+    "output_timestamp_format": "%Y%m%d_%H%M%S",
+    "output_sheet": "_BASE_KG_INN",
+    "base_table": "_base_kg",
+    "region_column": "Наименование, регион",
+    "companies_column": "Компании группы (ЕРЗ)",
+    "inn_keyword": "ИНН",
+    "company_separators": [";", ","],
+    "multi_value_joiner": ";\n",
+    "output_columns": {
+      "inn": "ИНН",
+      "company_name": "Наименование",
+      "region_name": "Наименование, регион"
+    },
+    "log_to_file": true,
+    "logs_dir": "log",
+    "log_file_prefix": "INFO_base_kg_inn",
+    "output_format": {
+      "header_bold": true,
+      "header_center": true,
+      "header_wrap": true,
+      "freeze_rows": 1,
+      "freeze_cols": 3,
+      "data_vertical_center": true,
+      "data_horizontal": "left",
+      "columns": {
+        "inn": {"width": 30, "wrap": false},
+        "company_name": {"width": 150, "wrap": true},
+        "region_name": {"width": 150, "wrap": true}
+      }
+    },
+    "_docs": {
+      "purpose": "Разбор колонки «Компании группы (ЕРЗ)» таблицы _base_kg в список уникальных ИНН с агрегацией названий и регионов.",
+      "parse": "Фрагменты вида «Название (ИНН 1234567890)» разделяются company_separators; ключевое слово inn_keyword настраивается.",
+      "aggregate": "Для одного ИНН разные названия и разные «Наименование, регион» склеиваются через multi_value_joiner (по умолчанию «;» + перенос строки)."
+    }
   }
 }

@@ -38,18 +38,21 @@ substring_search_in_powerquery_excel/
 │   ├── PowerQuery/
 │   │   ├── _HOLD_OD_GSZ.pq
 │   │   ├── _HOLD_OD_GSZ_FAST.pq
-│   │   └── _HOLD_OD_GSZ_FAST_V2.pq
+│   │   ├── _HOLD_OD_GSZ_FAST_V2.pq
+│   │   └── _BASE_KG_INN.pq            # Уникальные ИНН из `_base_kg`
 │   ├── generate_gsz_keys.py           # Генератор ключей из Excel `_base_gsz`
 │   ├── generate_test_workbook.py      # Сборка тестовой книги Tables+Holding.xlsx
 │   ├── gsz_matcher_parallel.py
+│   ├── extract_base_kg_inn.py         # Разбор «Компании группы (ЕРЗ)» → ИНН
 │   └── Tests/
 │       ├── test_gsz_matcher_parity.py
-│       └── test_key_fix_id.py
+│       ├── test_key_fix_id.py
+│       └── test_extract_base_kg_inn.py
 └── output/                            # Локальный вывод (в git не попадает)
 ```
 
 Файлы `output/*.xlsx`, `КейЛОАД.txt` и прочие Excel **не коммитятся**.  
-Исключения в git: `input/Tables+Holding.xlsx`, `input/workbook.xlsx`.
+Исключения в git: `input/Tables+Holding.xlsx`, `input/workbook.xlsx`, `input/base_kg_sample.xlsx`.
 
 ## Логика ключей
 
@@ -479,6 +482,89 @@ python3 src/generate_gsz_keys.py
 - [ROADMAP.md](ROADMAP.md) — этапы, архитектура, статусы.
 - [ToDo/Бизнес-требования_ГСЗ-сопоставление.md](ToDo/Бизнес-требования_ГСЗ-сопоставление.md) — требования и протокол согласования.
 
+## Разбор `_base_kg` → уникальные ИНН
+
+Независимые скрипты (не зависят от матчера ГСЗ): из колонки **«Компании группы (ЕРЗ)»**
+собирают все пары «наименование ↔ ИНН» и связывают с **«Наименование, регион»** той же строки.
+
+| Артефакт | Путь |
+|----------|------|
+| Python | `src/extract_base_kg_inn.py` → отдельный Excel |
+| Power Query | `src/PowerQuery/_BASE_KG_INN.pq` → отдельный лист/запрос |
+| Конфиг | блок `base_kg_inn_extract` в `config.json` |
+| Пример входа | `input/base_kg_sample.xlsx` (смарт-таблица `_base_kg`) |
+
+### Вход
+
+Смарт-таблица `_base_kg` (имя задаётся в config):
+
+| Колонка | Пример |
+|---------|--------|
+| `Наименование, регион` | `Таксопарк, Москва` |
+| `Компании группы (ЕРЗ)` | `АО … (ИНН 1000000001); АО … (ИНН 1000000002)` |
+
+Разделители компаний (`";"`, `","` и др.) и ключевое слово (`ИНН`) настраиваются в config.
+
+### Выход
+
+Таблица уникальных ИНН:
+
+| Колонка | Содержание |
+|---------|------------|
+| `ИНН` | Уникальный номер |
+| `Наименование` | Названия из «Компании группы (ЕРЗ)»; разные через `";\n"` |
+| `Наименование, регион` | Значения с исходных строк; разные через `";\n"` |
+
+### Форматирование (Python)
+
+- заголовки: жирный, центр по горизонтали/вертикали, перенос слов;
+- автофильтр; закрепление 1-й строки и 3-х колонок (`D2`);
+- данные: вертикальный центр, выравнивание влево;
+- колонка ИНН: ширина 30, без переноса; остальные: ширина 150, с переносом.
+
+В Power Query форматирование листа (ширины/freeze) задаётся после загрузки в Excel;
+логика данных совпадает с Python.
+
+### Запуск Python
+
+```bash
+python3 src/extract_base_kg_inn.py
+# или с переопределением:
+python3 src/extract_base_kg_inn.py \
+  --input-xlsx "input/base_kg_sample.xlsx" \
+  --output-xlsx "output/base_kg_inn.xlsx" \
+  --base-table "_base_kg" \
+  --inn-keyword "ИНН" \
+  --company-separators ";" ","
+```
+
+### Подключение Power Query
+
+1. Откройте книгу со смарт-таблицей `_base_kg`.
+2. **Данные** → **Создать запрос** → **Пустой запрос**.
+3. Вставьте код из `src/PowerQuery/_BASE_KG_INN.pq`.
+4. При необходимости поправьте параметры в начале запроса (имена таблицы/колонок, разделители).
+5. Загрузите на новый лист, переименуйте запрос в `_BASE_KG_INN`.
+
+### Параметры `config.json` → `base_kg_inn_extract`
+
+| Параметр | Описание |
+|----------|----------|
+| `input_xlsx` | Входной Excel |
+| `output_xlsx` | Базовое имя выходного Excel |
+| `base_table` | Имя смарт-таблицы (`_base_kg`) |
+| `region_column` / `companies_column` | Имена входных колонок |
+| `inn_keyword` | Ключевое слово перед номером (`ИНН`) |
+| `company_separators` | Список разделителей компаний |
+| `multi_value_joiner` | Склейка разных значений (`";\n"`) |
+| `output_format` | Ширины, freeze, wrap, выравнивание |
+
+### Тест
+
+```bash
+PYTHONPATH=src python3 -m unittest Tests.test_extract_base_kg_inn -v
+```
+
 ## История версий
 
 | Версия | Дата | Изменения |
@@ -500,3 +586,4 @@ python3 src/generate_gsz_keys.py
 | 1.13 | 2026-07-14 | Генератор ключей: источник Excel `_base_gsz`, все key-колонки из config |
 | 1.14 | 2026-07-14 | Ключи только из своего имени (+ транслит); буквы → `or_not`; таймштамп выходного файла; тестовая книга `Tables+Holding.xlsx` |
 | 1.15 | 2026-07-17 | Предфильтр: все AND/OR-токены full/not (без отсечения до одного якоря; кейс Seven/СЕВЕН) |
+| 1.16 | 2026-07-28 | Разбор `_base_kg`: Python `extract_base_kg_inn.py` + PQ `_BASE_KG_INN.pq`, блок `base_kg_inn_extract` |

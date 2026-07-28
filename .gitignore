@@ -1,12 +1,14 @@
 # Локальные артефакты
 output/*
 !output/.gitkeep
-log/
+log/*
+!log/.gitkeep
 LOGS/
 КейЛОАД.txt
 *.xlsx
 !input/workbook.xlsx
 !input/Tables+Holding.xlsx
+!input/base_kg_sample.xlsx
 *.xlsm
 *.xls
 
