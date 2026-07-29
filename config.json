@@ -81,22 +81,58 @@
       "format_data_vertical_center": true,
       "holding_sheet": {
         "columns": {
-          "gsz_primary": {"name": "Бренд", "width": 100},
-          "gsz_debug": {"name": "Множество_Брендов", "width": 150, "wrap": true},
-          "match_status": {"name": "статус", "width": 40, "wrap": true},
-          "match_count": {"name": "Кол-во совпадений", "width": 30}
+          "gsz_primary": {
+            "name": "Бренд",
+            "width": 100
+          },
+          "gsz_debug": {
+            "name": "Множество_Брендов",
+            "width": 150,
+            "wrap": true
+          },
+          "match_status": {
+            "name": "статус",
+            "width": 40,
+            "wrap": true
+          },
+          "match_count": {
+            "name": "Кол-во совпадений",
+            "width": 30
+          }
         }
       },
       "base_sheet": {
         "columns": {
-          "holding_count": {"name": "кол-во холдингов", "width": 30},
-          "found_holding": {"name": "Найденный холдинг", "width": 100},
-          "found_holding_debug": {"name": "Множество холдингов",
-            "width": 150, "wrap": true},
-          "match_status": {"name": "статус", "width": 40, "wrap": true},
-          "key_string": {"name": "строка ключа", "width": 30},
-          "key_length": {"name": "длина ключа", "width": 30},
-          "key_repeat_count": {"name": "число повторов", "width": 30}
+          "holding_count": {
+            "name": "кол-во холдингов",
+            "width": 30
+          },
+          "found_holding": {
+            "name": "Найденный холдинг",
+            "width": 100
+          },
+          "found_holding_debug": {
+            "name": "Множество холдингов",
+            "width": 150,
+            "wrap": true
+          },
+          "match_status": {
+            "name": "статус",
+            "width": 40,
+            "wrap": true
+          },
+          "key_string": {
+            "name": "строка ключа",
+            "width": 30
+          },
+          "key_length": {
+            "name": "длина ключа",
+            "width": 30
+          },
+          "key_repeat_count": {
+            "name": "число повторов",
+            "width": 30
+          }
         }
       }
     }
@@ -111,7 +147,10 @@
     "region_column": "Наименование, регион",
     "companies_column": "Компании группы (ЕРЗ)",
     "inn_keyword": "ИНН",
-    "company_separators": [";", ","],
+    "company_separators": [
+      ";",
+      ","
+    ],
     "multi_value_joiner": ";\n",
     "output_columns": {
       "inn": "ИНН",
@@ -133,12 +172,32 @@
       "data_vertical_center": true,
       "data_horizontal": "left",
       "columns": {
-        "inn": {"width": 20, "wrap": false},
-        "company_name": {"width": 50, "wrap": true},
-        "region_name": {"width": 80, "wrap": true},
-        "region_count": {"width": 10, "wrap": false, "align": "center"},
-        "region_base_name": {"width": 60, "wrap": true},
-        "region_base_count": {"width": 10, "wrap": false, "align": "center"}
+        "inn": {
+          "width": 20,
+          "wrap": false
+        },
+        "company_name": {
+          "width": 50,
+          "wrap": true
+        },
+        "region_name": {
+          "width": 80,
+          "wrap": true
+        },
+        "region_count": {
+          "width": 10,
+          "wrap": false,
+          "align": "center"
+        },
+        "region_base_name": {
+          "width": 60,
+          "wrap": true
+        },
+        "region_base_count": {
+          "width": 10,
+          "wrap": false,
+          "align": "center"
+        }
       }
     },
     "_docs": {
@@ -149,7 +208,7 @@
     }
   },
   "erz_json_to_excel": {
-    "input_json": "input/ERZ_Full_20260728_234730.json",
+    "input_json": "input/ERZ_Full_20260729_031208.json",
     "input_dir": "input",
     "input_glob": "ERZ_Full_*.json",
     "output_xlsx": "output/erz_from_json.xlsx",
@@ -196,15 +255,45 @@
       "data_vertical_center": true,
       "data_horizontal": "left",
       "columns": {
-        "group_id": {"width": 18, "wrap": false},
-        "group_name": {"width": 40, "wrap": true},
-        "group_url_id": {"width": 30, "wrap": false},
-        "regions": {"width": 50, "wrap": true},
-        "region_count": {"width": 10, "wrap": false, "align": "center"},
-        "group_companies": {"width": 80, "wrap": true},
-        "group_companies_count": {"width": 12, "wrap": false, "align": "center"},
-        "brand_companies": {"width": 80, "wrap": true},
-        "brand_companies_count": {"width": 12, "wrap": false, "align": "center"}
+        "group_id": {
+          "width": 18,
+          "wrap": false
+        },
+        "group_name": {
+          "width": 40,
+          "wrap": true
+        },
+        "group_url_id": {
+          "width": 30,
+          "wrap": false
+        },
+        "regions": {
+          "width": 50,
+          "wrap": true
+        },
+        "region_count": {
+          "width": 10,
+          "wrap": false,
+          "align": "center"
+        },
+        "group_companies": {
+          "width": 80,
+          "wrap": true
+        },
+        "group_companies_count": {
+          "width": 12,
+          "wrap": false,
+          "align": "center"
+        },
+        "brand_companies": {
+          "width": 80,
+          "wrap": true
+        },
+        "brand_companies_count": {
+          "width": 12,
+          "wrap": false,
+          "align": "center"
+        }
       }
     },
     "companies_format": {
@@ -216,15 +305,45 @@
       "data_vertical_center": true,
       "data_horizontal": "left",
       "columns": {
-        "inn": {"width": 20, "wrap": false},
-        "company_name": {"width": 50, "wrap": true},
-        "ogrn": {"width": 20, "wrap": false},
-        "url_id": {"width": 40, "wrap": true},
-        "role": {"width": 22, "wrap": false, "align": "center"},
-        "groups": {"width": 40, "wrap": true},
-        "groups_count": {"width": 12, "wrap": false, "align": "center"},
-        "group_regions": {"width": 60, "wrap": true},
-        "group_regions_count": {"width": 12, "wrap": false, "align": "center"}
+        "inn": {
+          "width": 20,
+          "wrap": false
+        },
+        "company_name": {
+          "width": 50,
+          "wrap": true
+        },
+        "ogrn": {
+          "width": 20,
+          "wrap": false
+        },
+        "url_id": {
+          "width": 40,
+          "wrap": true
+        },
+        "role": {
+          "width": 22,
+          "wrap": false,
+          "align": "center"
+        },
+        "groups": {
+          "width": 40,
+          "wrap": true
+        },
+        "groups_count": {
+          "width": 12,
+          "wrap": false,
+          "align": "center"
+        },
+        "group_regions": {
+          "width": 60,
+          "wrap": true
+        },
+        "group_regions_count": {
+          "width": 12,
+          "wrap": false,
+          "align": "center"
+        }
       }
     },
     "log_to_file": true,

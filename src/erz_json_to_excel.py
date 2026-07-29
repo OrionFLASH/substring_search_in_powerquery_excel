@@ -201,6 +201,16 @@ def регионы_компании_в_группе(
     return [str(r.get("region") or "").strip() for r in (group.get("regions") or []) if isinstance(r, dict)]
 
 
+def списки_компаний_группы(
+    group: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    """groupCompanies, brandCompanies и флаг names-only (нет JOIN, есть names)."""
+    group_cos = [c for c in (group.get("groupCompanies") or []) if isinstance(c, dict)]
+    brand_cos = [c for c in (group.get("brandCompanies") or []) if isinstance(c, dict)]
+    names_only = not group_cos and bool(brand_cos)
+    return group_cos, brand_cos, names_only
+
+
 def построить_лист_групп(
     data: dict[str, Any],
     joiner: str,
@@ -208,6 +218,7 @@ def построить_лист_групп(
 ) -> list[dict[str, Any]]:
     """Строки листа «группы застройщиков»."""
     rows: list[dict[str, Any]] = []
+    names_only_n = 0
     for group in data.get("groups") or []:
         if not isinstance(group, dict):
             continue
@@ -216,8 +227,11 @@ def построить_лист_групп(
             for r in (group.get("regions") or [])
             if isinstance(r, dict) and str(r.get("region") or "").strip()
         ]
-        group_cos = [c for c in (group.get("groupCompanies") or []) if isinstance(c, dict)]
-        brand_cos = [c for c in (group.get("brandCompanies") or []) if isinstance(c, dict)]
+        group_cos, brand_cos, names_only = списки_компаний_группы(group)
+        # JSON без JOIN: names = полный список → дублируем в колонку «компании группы»
+        group_for_sheet = brand_cos if names_only else group_cos
+        if names_only:
+            names_only_n += 1
         rows.append(
             {
                 "group_id": str(group.get("id") or ""),
@@ -226,10 +240,10 @@ def построить_лист_групп(
                 "regions": склеить_список(region_names, joiner),
                 "region_count": len(OrderedDict.fromkeys(region_names)),
                 "group_companies": склеить_список(
-                    [формат_компании(c, company_template) for c in group_cos],
+                    [формат_компании(c, company_template) for c in group_for_sheet],
                     joiner,
                 ),
-                "group_companies_count": len(group_cos),
+                "group_companies_count": len(group_for_sheet),
                 "brand_companies": склеить_список(
                     [формат_компании(c, company_template) for c in brand_cos],
                     joiner,
@@ -237,7 +251,14 @@ def построить_лист_групп(
                 "brand_companies_count": len(brand_cos),
             }
         )
-    logger.info("Лист групп: строк %s", len(rows))
+    if names_only_n:
+        logger.info(
+            "Лист групп: строк %s (без JOIN, список из names: %s групп)",
+            len(rows),
+            names_only_n,
+        )
+    else:
+        logger.info("Лист групп: строк %s", len(rows))
     return rows
 
 
@@ -279,10 +300,9 @@ def построить_лист_компаний(
         if not isinstance(group, dict):
             continue
         group_name = str(group.get("name") or "").strip() or str(group.get("id") or "")
+        group_cos, brand_cos, names_only = списки_компаний_группы(group)
 
-        for company in group.get("groupCompanies") or []:
-            if not isinstance(company, dict):
-                continue
+        for company in group_cos:
             inn = str(company.get("inn") or "").strip()
             if not inn:
                 continue
@@ -298,14 +318,16 @@ def построить_лист_компаний(
                 )
                 item["group_regions"][label] = None
 
-        for company in group.get("brandCompanies") or []:
-            if not isinstance(company, dict):
-                continue
+        for company in brand_cos:
             inn = str(company.get("inn") or "").strip()
             if not inn:
                 continue
             item = ensure(inn, company)
-            item["in_brand"] = True
+            # names-only: names ≈ полный список компаний группы
+            if names_only:
+                item["in_group"] = True
+            else:
+                item["in_brand"] = True
             item["group_names"][group_name] = None
             for region_name in регионы_компании_в_группе(company, group):
                 if not region_name:

@@ -28,6 +28,7 @@
 | 22 | `_base_kg` ИНН: freeze=1, ширины, кол-во регионов и имя без города | `[v]` |
 | 23 | ERZ DevTools scraper: регионы → группы → компании → JSON | `[v]` |
 | 24 | ERZ JSON → Excel: группы + уникальные компании по ИНН | `[v]` |
+| 25 | ERZ: режим только names + Excel без JOIN | `[v]` |
 
 Подробное ТЗ: [ToDo/key_fix_id.md](ToDo/key_fix_id.md).
 
@@ -62,6 +63,7 @@
 3. `[v]` `developer/join` + `developer/names` (one/all) → дедуп компаний
 4. `[v]` финальный/промежуточный JSON + README/ROADMAP
 5. `[v]` авто-прогон всех регионов/групп; retry 504; join по всем регионам группы
+6. `[v]` soft-fail после 3 ошибок + `status`/`errors` в JSON; чекпоинты и продолжение (batch/saveEvery)
 
 ### Этап 24 — ERZ JSON → Excel
 
@@ -83,6 +85,17 @@
 1. `[v]` тестовый JSON
 2. `[v]` скрипт + форматирование (автофильтр, freeze, wrap, ширины)
 3. `[v]` config / README / ROADMAP / unit-тесты
+
+### Этап 25 — ERZ: только names + JSON без JOIN
+
+**Контекст:** на полном дампе `ERZ_Full_20260729_031208` множества ИНН/id
+`developer/names` и union `developer/join` по всем регионам совпали на 100% (в т.ч. ПИК 135).
+Число «~76–78» на сайте — срез одного региона (Москва), не полный список группы.
+
+**Шаги:**
+1. `[v]` JS: опция источника компаний `names` / `join` / `both` (по умолчанию `names`)
+2. `[v]` PY: обработка JSON без `groupCompanies` (список из `brandCompanies`)
+3. `[v]` тест names-only + README
 
 ### Этап 21 — разбор `_base_kg` → уникальные ИНН
 

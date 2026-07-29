@@ -82,6 +82,49 @@ class TestErzJsonToExcel(unittest.TestCase):
         self.assertEqual(partner["role"], "компания бренда")
         self.assertEqual(partner["groups_count"], 1)
 
+    def test_names_only_json(self) -> None:
+        """JSON без groupCompanies: список берётся из brandCompanies."""
+        data = {
+            "groups": [
+                {
+                    "id": "1",
+                    "name": "ТестГруппа",
+                    "urlId": "test",
+                    "regions": [{"region": "г.Москва", "regionKey": "1"}],
+                    "brandCompanies": [
+                        {
+                            "id": "c1",
+                            "inn": "7700000001",
+                            "name": "ООО А",
+                            "ogrn": "1",
+                            "urlId": "a",
+                            "locations": [{"address": "Москва"}],
+                        }
+                    ],
+                }
+            ]
+        }
+        g_rows = построить_лист_групп(
+            data, joiner=self.joiner, company_template="{name} (ИНН {inn})"
+        )
+        self.assertEqual(g_rows[0]["group_companies_count"], 1)
+        self.assertEqual(g_rows[0]["brand_companies_count"], 1)
+        self.assertIn("ООО А (ИНН 7700000001)", g_rows[0]["group_companies"])
+
+        c_rows = построить_лист_компаний(
+            data,
+            joiner=self.joiner,
+            group_region_template="{group}, {region}",
+            role_labels={
+                "group": "компания группы",
+                "brand": "компания бренда",
+                "both": "группа и бренд",
+            },
+        )
+        self.assertEqual(len(c_rows), 1)
+        self.assertEqual(c_rows[0]["role"], "компания группы")
+        self.assertEqual(c_rows[0]["groups"], "ТестГруппа")
+
     def test_save_workbook(self) -> None:
         group_rows = построить_лист_групп(
             self.data, joiner=self.joiner, company_template="{name} (ИНН {inn})"

@@ -583,17 +583,32 @@ PYTHONPATH=src python3 -m unittest Tests.test_extract_base_kg_inn -v
 1. Открыть `https://erzrf.ru/zastroyschiki?...` (нужна авторизованная/рабочая сессия сайта).
 2. DevTools → **Console** → вставить содержимое `erz_devtools_scraper.js` → Enter.
 3. В модалке:
-   - настроить паузу (100–2000 мс, по умолчанию 400), режим `developer/names` и `developer/join` (один регион / все; **join по умолчанию — все**, иначе API вернёт компании только по одному региону), чекбокс промежуточных JSON;
-   - **либо** кнопка **«Автоматически скачать всё»** — все регионы → все группы → компании → `ERZ_Full_*.json` (с учётом паузы / промежуточных / names / join);
-   - **либо** вручную: **Загрузить регионы** → отметить нужные → **Запросить группы** → отметить группы → **Запросить компании**.
+   - настроить паузу, **источник компаний** (по умолчанию **только names**), names/join one|all,
+     **пачку групп** (batch, по умолчанию 500) и **чекпоинт каждые N** (по умолчанию 50);
+   - **либо** «Автоматически скачать всё» — регионы → группы → компании пачками с автосохранением `ERZ_Checkpoint_*.json` + `ERZ_Full_*.json`;
+   - **либо** вручную по этапам;
+   - **либо** «Загрузить чекпоинт» → «Продолжить с чекпоинта» (только `status=pending`);
+   - после 3 ошибок одного запроса (в т.ч. HTTP 400 names) — пометка `errors[]` у группы и переход дальше, процесс не останавливается.
 
-`costType=1` всегда. Промежуточные файлы: `<stage>_<id>_<urlId>_<timestamp>.json`.
+`costType=1` всегда. У группы в JSON: `status` (`pending`/`done`/`error`/`partial`), `errors[]`.
+
+Связь группа ↔ компании — по **id** группы (не по имени; имена на ERZ часто дублируются).
+`developer/names` (даже с одним регионом) даёт тот же набор компаний, что union `developer/join`
+по всем регионам группы; join нужен, если важны адреса `locations` с привязкой к регионам.
+Число компаний на карточке региона на сайте — срез одного region, не полный список группы.
 
 ### Структура итогового JSON
 
 ```json
 {
-  "meta": { "exportedAt": "...", "costType": 1, "namesMode": "one|all", "pauseMs": 400 },
+  "meta": {
+    "exportedAt": "...",
+    "costType": 1,
+    "companiesSource": "names|join|both",
+    "namesMode": "one|all",
+    "joinMode": "one|all",
+    "pauseMs": 400
+  },
   "regions": [{ "id", "text", "additional", "brandCount" }],
   "groups": [{
     "id", "name", "urlId",
@@ -604,7 +619,9 @@ PYTHONPATH=src python3 -m unittest Tests.test_extract_base_kg_inn -v
 }
 ```
 
-Цепочка API: `dictionary` → `brand_count` → `brand/join` → `developer/join/{groupId}` → `developer/names`.
+При `companiesSource=names` поле `groupCompanies` может быть пустым — Excel подставляет список из `brandCompanies`.
+
+Цепочка API: `dictionary` → `brand_count` → `brand/join` → (`developer/join/{groupId}` и/или `developer/names`).
 
 Тестовый JSON для офлайн-проверки: [`input/erz_full_sample.json`](input/erz_full_sample.json).
 
@@ -665,3 +682,5 @@ PYTHONPATH=src python3 -m unittest Tests.test_erz_json_to_excel -v
 | 1.18 | 2026-07-28 | ERZ DevTools scraper (`src/erz/erz_devtools_scraper.js`): регионы → группы → компании → JSON |
 | 1.19 | 2026-07-28 | ERZ JSON → Excel (`erz_json_to_excel.py`): листы групп и уникальных компаний, `erz_full_sample.json` |
 | 1.20 | 2026-07-29 | ERZ scraper: авто-прогон, retry 504, join по всем регионам; Excel: `group_regions_count` |
+| 1.21 | 2026-07-29 | ERZ scraper: soft-fail 400/ошибок, чекпоинты, пагинация и продолжение |
+| 1.22 | 2026-07-29 | ERZ: источник компаний names/join/both (по умолчанию names); Excel без JOIN |
