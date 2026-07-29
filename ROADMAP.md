@@ -53,9 +53,9 @@
 
 **Артефакт:** [`src/erz/erz_devtools_scraper.js`](src/erz/erz_devtools_scraper.js)
 
-**Параметры по умолчанию:** пауза 400 мс, `costType=1`, names = один регион на группу,
-`join` = **все регионы группы** (API join фильтрует по region), авто «скачать всё»,
-повторы при 504 (до 3), итог `ERZ_Full_<timestamp>.json`.
+**Параметры по умолчанию:** пауза 400 мс, `costType=1`, источник компаний = **names**,
+names = один регион на группу, `join` = все регионы (если включён), авто «скачать всё»,
+повторы при 504 (до 3), чекпоинты, итог `ERZ_Full_<timestamp>.json`.
 
 **Шаги:**
 1. `[v]` IIFE + модалка + `sleep` / `fetchJson` / `downloadJson` / лог
