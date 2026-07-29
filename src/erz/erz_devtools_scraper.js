@@ -1284,7 +1284,7 @@
   }
 
   /**
-   * @param {{ limit?: number, onlyPending?: boolean, ids?: string[] }} opts
+   * @param {{ limit?: number, onlyPending?: boolean, ids?: string[], deferFinalDownload?: boolean }} opts
    */
   async function processCompaniesQueue(opts) {
     const options = opts || {};
@@ -1313,8 +1313,8 @@
 
     if (!ids.length) {
       log('Нет групп для обработки (все done или очередь пуста).', 'ok');
-      downloadFinal();
-      return;
+      if (!options.deferFinalDownload) downloadFinal();
+      return { processed: 0, pendingAfter: 0 };
     }
 
     log('Обработка компаний: ' + ids.length + ' групп…', 'ok');
@@ -1467,14 +1467,36 @@
     }
 
     downloadCheckpointAndPartial('batch-end');
-    downloadFinal();
+    if (!options.deferFinalDownload) downloadFinal();
     log('Пачка завершена. Чекпоинт и ERZ_Full сохранены.', 'ok');
+    const pendingAfter = Array.from(state.groups.values()).filter((g) => g.status === 'pending').length;
+    return { processed: ids.length, pendingAfter: pendingAfter };
   }
 
   async function loadCompanies() {
     const selected = state.groupsSelected.size
       ? Array.from(state.groupsSelected)
       : null;
+    // Для режима pending: автоматически идти по следующей пачке до завершения.
+    if (!selected && state.usePagination) {
+      let guard = 0;
+      while (guard < 100000) {
+        checkAbort();
+        const res = await processCompaniesQueue({
+          onlyPending: true,
+          limit: state.batchSize,
+          deferFinalDownload: true,
+        });
+        const left = res && typeof res.pendingAfter === 'number' ? res.pendingAfter : 0;
+        if (!left) break;
+        log('Переход к следующей пачке: pending=' + left, 'info');
+        guard += Math.max(1, Number(res && res.processed ? res.processed : state.batchSize));
+      }
+      downloadFinal();
+      log('Все пачки завершены.', 'ok');
+      return;
+    }
+
     await processCompaniesQueue({
       onlyPending: !selected,
       ids: selected,
