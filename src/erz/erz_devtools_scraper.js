@@ -20,6 +20,8 @@
   const RETRY_BASE_MS = 2000;
   const RETRY_GATEWAY_MS = 8000;
   const CHECKPOINT_SCHEMA = 'erz-checkpoint-v1';
+  const MAX_LOG_LINES = 800;
+  const TREND_EPSILON = 0.02;
 
   /** @type {Record<string, any>} */
   const state = {
@@ -29,8 +31,9 @@
     joinMode: 'all',
     /** both | names | join — names достаточно для списка компаний (≈ join∪все регионы). */
     companiesSource: 'names',
-    batchSize: 500,
-    saveEvery: 50,
+    usePagination: true,
+    batchSize: 1000,
+    saveEvery: 250,
     regionsRaw: [],
     regionsSelected: new Map(),
     groups: new Map(),
@@ -40,6 +43,19 @@
     busy: false,
     abort: false,
     requestCount: 0,
+    groupsLoadedRaw: 0,
+    currentGroupId: '',
+    currentGroupName: '',
+    currentQueryAlias: '—',
+    currentNamesUniqueCount: 0,
+    lastRequestMs: 0,
+    requestDurationsMs: [],
+    groupDurationsMs: [],
+    currentGroupDurationsMs: [],
+    processedInRun: 0,
+    runTotalPlanned: 0,
+    lastCheckpointSummary: '',
+    pendingRender: false,
   };
 
   // ─── утилиты ─────────────────────────────────────────────────────────────
@@ -143,6 +159,7 @@
       else log('↻ повтор ' + attempt + '/' + FETCH_MAX_ATTEMPTS + ': ' + url, 'req');
 
       let kind = 'normal';
+      const startedAt = performance.now();
       try {
         const res = await fetch(url, {
           method: 'GET',
@@ -194,9 +211,19 @@
           );
         }
 
+        const elapsed = performance.now() - startedAt;
+        state.lastRequestMs = elapsed;
+        state.requestDurationsMs.push(elapsed);
+        state.currentGroupDurationsMs.push(elapsed);
+        requestRender();
         if (attempt > 1) log('✓ повтор успешен (попытка ' + attempt + ')', 'ok');
         return { ok: true, data: data };
       } catch (e) {
+        const elapsed = performance.now() - startedAt;
+        state.lastRequestMs = elapsed;
+        state.requestDurationsMs.push(elapsed);
+        state.currentGroupDurationsMs.push(elapsed);
+        requestRender();
         lastError = e;
         const msg = String(e && e.message ? e.message : e);
         if (state.abort || /остановлено пользователем/i.test(msg)) {
@@ -329,7 +356,41 @@
     line.className = 'erz-log-line erz-log-' + (kind || 'info');
     line.textContent = '[' + new Date().toLocaleTimeString('ru-RU') + '] ' + msg;
     el.appendChild(line);
+    while (el.childElementCount > MAX_LOG_LINES) {
+      el.removeChild(el.firstChild);
+    }
     el.scrollTop = el.scrollHeight;
+  }
+
+  function fmtMs(ms) {
+    const n = Number(ms) || 0;
+    if (n <= 0) return '0м 00с 000мс';
+    const total = Math.round(n);
+    const min = Math.floor(total / 60000);
+    const sec = Math.floor((total % 60000) / 1000);
+    const msec = total % 1000;
+    return min + 'м ' + String(sec).padStart(2, '0') + 'с ' + String(msec).padStart(3, '0') + 'мс';
+  }
+
+  function avg(arr) {
+    if (!arr || !arr.length) return 0;
+    let s = 0;
+    for (let i = 0; i < arr.length; i++) s += Number(arr[i]) || 0;
+    return s / arr.length;
+  }
+
+  function tailAvg(arr, n) {
+    if (!arr || !arr.length) return 0;
+    const start = Math.max(0, arr.length - n);
+    return avg(arr.slice(start));
+  }
+
+  function trendMark(sampleAvg, globalAvg) {
+    if (!sampleAvg || !globalAvg) return '→';
+    const delta = (sampleAvg - globalAvg) / globalAvg;
+    if (delta > TREND_EPSILON) return '🔺';
+    if (delta < -TREND_EPSILON) return '🟢🔻';
+    return '→';
   }
 
   function setStats() {
@@ -347,26 +408,74 @@
       else if (g.status === 'error' || g.status === 'partial') err += 1;
       else pending += 1;
     });
-    s.textContent =
-      'Регионов: ' +
+    const reqAvgAll = avg(state.requestDurationsMs);
+    const reqAvg10 = tailAvg(state.requestDurationsMs, 10);
+    const reqAvg100 = tailAvg(state.requestDurationsMs, 100);
+    const grpAvgAll = avg(state.groupDurationsMs);
+    const grpAvgCurrent = avg(state.currentGroupDurationsMs);
+    const totalSelected = state.groupsSelected.size || state.groups.size;
+    s.innerHTML =
+      '<b>Регионы:</b> ' +
       state.regionsSelected.size +
       '/' +
       state.regionsRaw.length +
-      ' · Групп: ' +
+      ' · <b>Группы:</b> загружено ' +
+      state.groupsLoadedRaw +
+      ' → уникальных ' +
       state.groups.size +
       ' (выбр. ' +
-      state.groupsSelected.size +
+      totalSelected +
       '; done ' +
       done +
       ', err/partial ' +
       err +
       ', pending ' +
       pending +
-      ')' +
-      ' · Компаний группы: ' +
+      ')<br>' +
+      '<b>Текущий:</b> ' +
+      (state.currentGroupName || '—') +
+      (state.currentGroupId ? ' (id=' + state.currentGroupId + ')' : '') +
+      ' · <b>Запрос:</b> ' +
+      state.currentQueryAlias +
+      ' · <b>names уник. id:</b> ' +
+      state.currentNamesUniqueCount +
+      '<br>' +
+      '<b>Прогресс:</b> ' +
+      state.processedInRun +
+      '/' +
+      state.runTotalPlanned +
+      ' обработано · <b>Компаний:</b> group=' +
       gc +
-      ' · Бренд: ' +
-      bc;
+      ' brand=' +
+      bc +
+      '<br>' +
+      '<b>Время:</b> last=' +
+      fmtMs(state.lastRequestMs) +
+      ' · avg group=' +
+      fmtMs(grpAvgCurrent || grpAvgAll) +
+      ' · avg all=' +
+      fmtMs(reqAvgAll) +
+      ' · avg10=' +
+      fmtMs(reqAvg10) +
+      ' ' +
+      trendMark(reqAvg10, reqAvgAll) +
+      ' · avg100=' +
+      fmtMs(reqAvg100) +
+      ' ' +
+      trendMark(reqAvg100, reqAvgAll) +
+      '<br>' +
+      '<b>Запросов:</b> ' +
+      state.requestCount +
+      (state.lastCheckpointSummary ? ' · <b>Чекпоинт:</b> ' + state.lastCheckpointSummary : '');
+  }
+
+  function requestRender() {
+    if (state.pendingRender) return;
+    state.pendingRender = true;
+    requestAnimationFrame(() => {
+      state.pendingRender = false;
+      setStats();
+    });
   }
 
   function setBusy(busy) {
@@ -412,6 +521,7 @@
 #${ROOT_ID} .erz-list{max-height:160px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;padding:6px;background:#f1f5f9}
 #${ROOT_ID} .erz-list label{display:flex;gap:8px;align-items:flex-start;padding:3px 2px;font-size:12px}
 #${ROOT_ID} .erz-stats{font-size:12px;color:#475569;padding:6px 8px;background:#e2e8f0;border-radius:6px}
+#${ROOT_ID} .erz-stats b{color:#0f172a}
 #${ROOT_ID} #erz-log{max-height:180px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:8px}
 #${ROOT_ID} .erz-log-line{margin:2px 0;white-space:pre-wrap;word-break:break-all}
 #${ROOT_ID} .erz-log-req{color:#7dd3fc}
@@ -455,8 +565,9 @@
           </label>
         </div>
         <div class="erz-row" style="margin-top:8px">
-          <label>Пачка групп <input type="number" id="erz-batch" min="50" max="5000" step="50" value="500"></label>
-          <label>Чекпоинт каждые N групп <input type="number" id="erz-save-every" min="1" max="2000" step="1" value="50"></label>
+          <label><input type="checkbox" id="erz-use-pagination" checked> Пагинация групп</label>
+          <label>Пачка групп <input type="number" id="erz-batch" min="50" max="10000" step="50" value="1000"></label>
+          <label>Чекпоинт каждые N групп <input type="number" id="erz-save-every" min="1" max="5000" step="1" value="250"></label>
         </div>
         <div class="erz-row" style="margin-top:8px">
           <button type="button" class="auto" data-erz-action="auto-all">Автоматически скачать всё</button>
@@ -466,7 +577,7 @@
           <input type="file" id="erz-checkpoint-file" accept="application/json,.json" style="display:none">
         </div>
         <div class="erz-hint">После 3 ошибок запроса — пометка в группе и переход к следующей (процесс не останавливается).</div>
-        <div class="erz-hint">Чекпоинт: ERZ_Checkpoint_*.json (группы + status pending/done/error) + параллельно ERZ_Full_*.json. Пачка — сколько групп за один прогон «продолжить»; сохранение каждые N.</div>
+        <div class="erz-hint">Чекпоинт: ERZ_Checkpoint_*.json (группы + status pending/done/error) + параллельно ERZ_Full_*.json. При выключенной пагинации обрабатываются все выбранные группы за проход.</div>
         <div class="erz-hint">costType=1 · куки сессии · HTTP 400 (names) типичен при пустом join — будет помечен и пропущен.</div>
         <div class="erz-hint">Связь группа↔компании — по <b>id</b> группы, не по имени. «Только names»: список компаний ≈ union join по всем регионам; join нужен, если важны адреса locations по регионам.</div>
       </div>
@@ -569,6 +680,7 @@
     const namesEl = document.getElementById('erz-names-mode');
     const joinEl = document.getElementById('erz-join-mode');
     const srcEl = document.getElementById('erz-companies-source');
+    const paginationEl = document.getElementById('erz-use-pagination');
     const batchEl = document.getElementById('erz-batch');
     const everyEl = document.getElementById('erz-save-every');
     if (pauseEl) {
@@ -582,13 +694,14 @@
       const v = String(srcEl.value || 'names');
       state.companiesSource = v === 'join' || v === 'both' ? v : 'names';
     }
+    if (paginationEl) state.usePagination = !!paginationEl.checked;
     if (batchEl) {
       const n = Number(batchEl.value);
-      state.batchSize = Math.max(50, Math.min(5000, Number.isFinite(n) ? n : 500));
+      state.batchSize = Math.max(50, Math.min(10000, Number.isFinite(n) ? n : 1000));
     }
     if (everyEl) {
       const n = Number(everyEl.value);
-      state.saveEvery = Math.max(1, Math.min(2000, Number.isFinite(n) ? n : 50));
+      state.saveEvery = Math.max(1, Math.min(5000, Number.isFinite(n) ? n : 250));
     }
   }
 
@@ -682,6 +795,7 @@
         pauseMs: state.pauseMs,
         batchSize: state.batchSize,
         saveEvery: state.saveEvery,
+        usePagination: state.usePagination,
         source: window.location.href,
       },
       regions,
@@ -707,6 +821,7 @@
         phase: 'companies',
         batchSize: state.batchSize,
         saveEvery: state.saveEvery,
+        usePagination: state.usePagination,
         pauseMs: state.pauseMs,
         namesMode: state.namesMode,
         joinMode: state.joinMode,
@@ -718,6 +833,9 @@
           pending: pending.length,
           error: errored.length,
         },
+        groupsLoadedRaw: state.groupsLoadedRaw,
+        processedInRun: state.processedInRun,
+        runTotalPlanned: state.runTotalPlanned,
       },
       meta: full.meta,
       regions: full.regions,
@@ -734,6 +852,17 @@
       regions: cp.regions,
       groups: cp.groups,
     });
+    state.lastCheckpointSummary =
+      'raw groups ' +
+      state.groupsLoadedRaw +
+      ' → unique ' +
+      state.groups.size +
+      ', done=' +
+      cp.checkpoint.counts.done +
+      ', pending=' +
+      cp.checkpoint.counts.pending +
+      ', error=' +
+      cp.checkpoint.counts.error;
     log(
       'Чекпоинт + Full сохранены (' +
         stamp +
@@ -745,6 +874,7 @@
         cp.checkpoint.counts.error,
       'ok'
     );
+    requestRender();
   }
 
   function applyCheckpoint(data) {
@@ -763,17 +893,23 @@
     }
     if (cp.batchSize != null) state.batchSize = Number(cp.batchSize) || state.batchSize;
     if (cp.saveEvery != null) state.saveEvery = Number(cp.saveEvery) || state.saveEvery;
+    if (cp.usePagination != null) state.usePagination = !!cp.usePagination;
+    if (cp.groupsLoadedRaw != null) state.groupsLoadedRaw = Number(cp.groupsLoadedRaw) || 0;
+    if (cp.processedInRun != null) state.processedInRun = Number(cp.processedInRun) || 0;
+    if (cp.runTotalPlanned != null) state.runTotalPlanned = Number(cp.runTotalPlanned) || 0;
 
     const pauseEl = document.getElementById('erz-pause');
     const namesEl = document.getElementById('erz-names-mode');
     const joinEl = document.getElementById('erz-join-mode');
     const srcEl = document.getElementById('erz-companies-source');
+    const paginationEl = document.getElementById('erz-use-pagination');
     const batchEl = document.getElementById('erz-batch');
     const everyEl = document.getElementById('erz-save-every');
     if (pauseEl) pauseEl.value = String(state.pauseMs);
     if (namesEl) namesEl.value = state.namesMode;
     if (joinEl) joinEl.value = state.joinMode;
     if (srcEl) srcEl.value = state.companiesSource;
+    if (paginationEl) paginationEl.checked = !!state.usePagination;
     if (batchEl) batchEl.value = String(state.batchSize);
     if (everyEl) everyEl.value = String(state.saveEvery);
 
@@ -853,9 +989,11 @@
       throw new Error('Сначала загрузите файл чекпоинта (кнопка «Загрузить чекпоинт»)');
     }
     log(
-      'Продолжение: пачка до ' +
+      'Продолжение: пагинация=' +
+        (state.usePagination ? 'on' : 'off') +
+        ', пачка=' +
         state.batchSize +
-        ' групп, чекпоинт каждые ' +
+        ', чекпоинт каждые ' +
         state.saveEvery,
       'ok'
     );
@@ -986,6 +1124,11 @@
     state.groups.clear();
     state.groupsSelected.clear();
     state.processQueue = [];
+    state.groupsLoadedRaw = 0;
+    state.currentGroupId = '';
+    state.currentGroupName = '';
+    state.currentQueryAlias = 'brand_count / brand_join';
+    requestRender();
 
     const regions = Array.from(state.regionsSelected.values());
     let i = 0;
@@ -1018,9 +1161,22 @@
       checkAbort();
       maybeSaveIntermediate('brand_join', reg.id, reg.additional, joinData);
       const list = joinData && Array.isArray(joinData.list) ? joinData.list : [];
+      const before = state.groups.size;
+      state.groupsLoadedRaw += list.length;
       list.forEach((item) => upsertGroup(item, item.region || reg.text, reg.id, reg.additional));
-      log('  групп в ответе: ' + list.length + '; уникальных: ' + state.groups.size, 'ok');
-      setStats();
+      const after = state.groups.size;
+      log(
+        '  join групп: +' +
+          list.length +
+          ' (сырой суммарно ' +
+          state.groupsLoadedRaw +
+          ') · дедуп: ' +
+          before +
+          ' → ' +
+          after,
+        'ok'
+      );
+      requestRender();
     }
 
     state.processQueue = Array.from(state.groups.keys());
@@ -1046,7 +1202,7 @@
       recordGroupError(group, 'developer/join', 'Нет additional (slug)', {
         regionKey: regionEntry.regionKey,
       });
-      return { count: 0, failed: true };
+      return { count: 0, before: group.groupCompanies.length || 0, after: group.groupCompanies.length || 0, failed: true };
     }
     const q =
       'region=' +
@@ -1064,11 +1220,12 @@
         regionKey: regionEntry.regionKey,
         httpStatus: result.status,
       });
-      return { count: 0, failed: true };
+      return { count: 0, before: group.groupCompanies.length || 0, after: group.groupCompanies.length || 0, failed: true };
     }
     const data = result.data;
     maybeSaveIntermediate('developer_join', group.id, group.urlId || slug, data);
     const list = Array.isArray(data) ? data : data && Array.isArray(data.list) ? data.list : [];
+    const before = group._gcMap.size;
     list.forEach((c) => {
       upsertCompany(group._gcMap, c, {
         address: c.address,
@@ -1076,7 +1233,8 @@
       });
     });
     group.groupCompanies = Array.from(group._gcMap.values());
-    return { count: list.length, failed: false };
+    const after = group._gcMap.size;
+    return { count: list.length, before: before, after: after, failed: false };
   }
 
   async function fetchBrandCompanies(group, regionEntry) {
@@ -1085,7 +1243,7 @@
       recordGroupError(group, 'developer/names', 'Нет additional (slug)', {
         regionKey: regionEntry.regionKey,
       });
-      return { count: 0, failed: true };
+      return { count: 0, before: group.brandCompanies.length || 0, after: group.brandCompanies.length || 0, failed: true };
     }
     const q =
       'region=' +
@@ -1106,11 +1264,12 @@
         organizationId: group.id,
         httpStatus: result.status,
       });
-      return { count: 0, failed: true };
+      return { count: 0, before: group.brandCompanies.length || 0, after: group.brandCompanies.length || 0, failed: true };
     }
     const data = result.data;
     maybeSaveIntermediate('developer_names', group.id, group.urlId || slug, data);
     const list = Array.isArray(data) ? data : data && Array.isArray(data.list) ? data.list : [];
+    const before = group._bcMap.size;
     list.forEach((c) => {
       upsertCompany(group._bcMap, c, {
         address: c.address,
@@ -1118,7 +1277,10 @@
       });
     });
     group.brandCompanies = Array.from(group._bcMap.values());
-    return { count: list.length, failed: false };
+    const after = group._bcMap.size;
+    state.currentNamesUniqueCount = after;
+    requestRender();
+    return { count: list.length, before: before, after: after, failed: false };
   }
 
   /**
@@ -1145,7 +1307,7 @@
         : Array.from(state.groups.keys());
     }
 
-    if (options.limit != null && options.limit > 0) {
+    if (state.usePagination && options.limit != null && options.limit > 0) {
       ids = ids.slice(0, options.limit);
     }
 
@@ -1156,12 +1318,20 @@
     }
 
     log('Обработка компаний: ' + ids.length + ' групп…', 'ok');
+    downloadCheckpointAndPartial('batch-start');
     let sinceSave = 0;
     let gi = 0;
+    const totalSelected = state.groupsSelected.size || state.groups.size;
+    state.runTotalPlanned = ids.length;
+    state.processedInRun = 0;
+    state.currentQueryAlias = 'подготовка';
+    requestRender();
 
     for (const id of ids) {
       checkAbort();
       gi += 1;
+      const groupStartedAt = performance.now();
+      state.currentGroupDurationsMs = [];
       const group = state.groups.get(id);
       if (!group || !group.regions.length) {
         log('Группа ' + id + ' без регионов — пропуск', 'err');
@@ -1171,6 +1341,9 @@
         }
         continue;
       }
+      state.currentGroupId = group.id;
+      state.currentGroupName = group.name;
+      state.currentNamesUniqueCount = (group.brandCompanies && group.brandCompanies.length) || 0;
 
       // Не затирать уже собранные данные при resume error/partial — только для pending
       if (group.status === 'pending' || !group.status) {
@@ -1184,9 +1357,22 @@
       }
 
       log(
-        'Группа ' + gi + '/' + ids.length + ': ' + group.name + ' (id=' + group.id + ', ' + (group.status || 'pending') + ')',
+        'Группа ' +
+          gi +
+          '/' +
+          ids.length +
+          ' (из ' +
+          totalSelected +
+          '): ' +
+          group.name +
+          ' (id=' +
+          group.id +
+          ', ' +
+          (group.status || 'pending') +
+          ')',
         'info'
       );
+      requestRender();
 
       let hadFail = false;
       const needJoin = state.companiesSource === 'join' || state.companiesSource === 'both';
@@ -1201,18 +1387,22 @@
           const r = await fetchGroupCompanies(group, reg);
           await pause();
           if (r.failed) hadFail = true;
+          state.currentQueryAlias = 'developer/join ' + ji + '/' + joinRegs.length;
           log(
             '  join ' +
               ji +
               '/' +
               joinRegs.length +
-              ' (+' +
+              ' (+сырой ' +
               (r.count || 0) +
-              ') → компаний группы ' +
-              group.groupCompanies.length +
+              ') · дедуп ' +
+              (r.before || 0) +
+              ' → ' +
+              (r.after || group.groupCompanies.length) +
               (r.failed ? ' [ошибка]' : ''),
             r.failed ? 'err' : 'ok'
           );
+          requestRender();
         }
       } else {
         log('  join пропущен (источник=names)', 'info');
@@ -1227,18 +1417,22 @@
           const r = await fetchBrandCompanies(group, reg);
           await pause();
           if (r.failed) hadFail = true;
+          state.currentQueryAlias = 'developer/names ' + ni + '/' + namesRegs.length;
           log(
             '  names ' +
               ni +
               '/' +
               namesRegs.length +
-              ' (+' +
+              ' (+сырой ' +
               (r.count || 0) +
-              ') → бренд ' +
-              group.brandCompanies.length +
+              ') · дедуп ' +
+              (r.before || 0) +
+              ' → ' +
+              (r.after || group.brandCompanies.length) +
               (r.failed ? ' [ошибка]' : ''),
             r.failed ? 'err' : 'ok'
           );
+          requestRender();
         }
       } else {
         log('  names пропущен (источник=join)', 'info');
@@ -1259,8 +1453,12 @@
       }
 
       sinceSave += 1;
-      setStats();
-      renderGroups();
+      state.processedInRun = gi;
+      state.groupDurationsMs.push(performance.now() - groupStartedAt);
+      requestRender();
+      if (gi === 1 || gi % 25 === 0 || gi === ids.length) {
+        renderGroups();
+      }
 
       if (sinceSave >= state.saveEvery) {
         downloadCheckpointAndPartial('every-' + state.saveEvery);
@@ -1280,7 +1478,7 @@
     await processCompaniesQueue({
       onlyPending: !selected,
       ids: selected,
-      limit: state.batchSize,
+      limit: state.usePagination ? state.batchSize : null,
     });
   }
 
@@ -1297,6 +1495,8 @@
         state.joinMode +
         ', batch=' +
         state.batchSize +
+        ', pagination=' +
+        (state.usePagination ? 'on' : 'off') +
         ', saveEvery=' +
         state.saveEvery +
         ')',
@@ -1322,8 +1522,11 @@
       ).length;
       if (!pending) break;
       log('Авто: осталось pending: ' + pending, 'info');
-      await processCompaniesQueue({ onlyPending: true, limit: state.batchSize });
-      guard += state.batchSize;
+      await processCompaniesQueue({
+        onlyPending: true,
+        limit: state.usePagination ? state.batchSize : null,
+      });
+      guard += state.usePagination ? state.batchSize : pending;
     }
     downloadFinal();
     log('Авто: готово.', 'ok');
